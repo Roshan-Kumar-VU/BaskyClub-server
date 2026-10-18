@@ -38,6 +38,18 @@
             "image": "./assets/images/splash-icon.png"
           }
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "BaskyCLub uses your location once to find your district. Only the district is saved."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose photos to share in your posts."
+        }
       ]
     ],
     "experiments": {

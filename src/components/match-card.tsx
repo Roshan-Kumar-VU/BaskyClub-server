@@ -1,7 +1,8 @@
+import { router } from 'expo-router';
 import { View } from 'react-native';
 
-import type { MatchView } from '@/data/repositories';
-import { matchTime } from '@/lib/format';
+import type { MatchView } from '@/data/repo';
+import { timeAgo } from '@/lib/format';
 import { radius, space, type, useTheme } from '@/theme';
 
 import { Avatar } from './avatar';
@@ -9,62 +10,38 @@ import { LiveBadge, Tag } from './badge';
 import { PressableScale } from './pressable-scale';
 import { Text } from './text';
 
-const categoryLabel = { tournament: 'Tournament', friendly: 'Friendly', practice: 'Practice' } as const;
+export const categoryLabel = { tournament: 'Tournament', friendly: 'Friendly', practice: 'Practice' } as const;
 
 /** Scoreboard-style card. Scores use the display face with tabular figures. */
-export function MatchCard({ match, onPress }: { match: MatchView; onPress?: () => void }) {
+export function MatchCard({ match, compactWidth }: { match: MatchView; compactWidth?: number }) {
   const { c } = useTheme();
-  const played = match.status !== 'scheduled';
-  const aWins = match.status === 'completed' && match.winnerId === match.teamAId;
-  const bWins = match.status === 'completed' && match.winnerId === match.teamBId;
+  const done = match.status === 'completed';
+  const aWon = done && match.scoreA > match.scoreB;
+  const bWon = done && match.scoreB > match.scoreA;
 
-  const side = (name: string, score: number, won: boolean, align: 'left' | 'right') => (
-    <View style={{ flex: 1, alignItems: align === 'left' ? 'flex-start' : 'flex-end', gap: space.sm }}>
-      <View style={{ flexDirection: align === 'left' ? 'row' : 'row-reverse', alignItems: 'center', gap: space.sm }}>
-        <Avatar name={name} size={30} square />
-        <Text variant="bodyStrong" numberOfLines={1} style={{ flexShrink: 1, textAlign: align }}>
-          {name}
-        </Text>
-      </View>
-      {played && (
-        <Text
-          tabular
-          style={[type.score, { color: match.status === 'completed' && !won ? c.textMuted : c.text }]}>
-          {score}
-        </Text>
-      )}
+  const row = (name: string, score: number, won: boolean, dim: boolean) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+      <Avatar name={name} size={28} square />
+      <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1, opacity: dim ? 0.55 : 1 }}>{name}</Text>
+      <Text tabular style={[type.stat, { color: dim ? c.textMuted : c.text }]}>{score}</Text>
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: won ? c.accent : 'transparent' }} />
     </View>
   );
 
   return (
-    <PressableScale onPress={onPress} scaleTo={0.98}>
-      <View
-        style={{
-          backgroundColor: c.card,
-          borderRadius: radius.lg,
-          borderCurve: 'continuous',
-          padding: space.lg,
-          gap: space.md,
-          boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 6px 16px rgba(0,0,0,0.04)',
-        }}>
+    <PressableScale scaleTo={0.98} onPress={() => router.push({ pathname: '/match/[id]', params: { id: match.id } })}>
+      <View style={{ width: compactWidth, backgroundColor: c.card, borderRadius: radius.lg, borderCurve: 'continuous', padding: space.lg, gap: space.md, boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 6px 16px rgba(0,0,0,0.05)' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-          {match.status === 'live' ? <LiveBadge /> : <Tag label={categoryLabel[match.category]} />}
-          {match.status === 'live' && <Tag label={categoryLabel[match.category]} />}
+          {match.status === 'live' && <LiveBadge />}
+          <Tag label={categoryLabel[match.category]} />
           <Text variant="caption" color="textMuted" numberOfLines={1} style={{ flex: 1, textAlign: 'right' }}>
-            {match.status === 'live' ? `Q${match.quarter}` : match.status === 'scheduled' ? matchTime(match.scheduledAt) : 'Final'}
+            {match.status === 'live' ? `Q${match.quarter}` : `Final · ${timeAgo(match.scheduledAt)}`}
           </Text>
         </View>
-
-        <View style={{ flexDirection: 'row', alignItems: played ? 'flex-end' : 'center', gap: space.md }}>
-          {side(match.teamA.teamName ?? 'Team A', match.scoreA, aWins, 'left')}
-          <Text variant="caption" color="textMuted" style={{ paddingBottom: played ? 14 : 0 }}>
-            {played ? '–' : 'vs'}
-          </Text>
-          {side(match.teamB.teamName ?? 'Team B', match.scoreB, bWins, 'right')}
-        </View>
-
+        {row(match.sideA.name, match.scoreA, aWon, bWon)}
+        {row(match.sideB.name, match.scoreB, bWon, aWon)}
         <Text variant="caption" color="textMuted" numberOfLines={1}>
-          {[match.tournamentName, match.venueText].filter(Boolean).join('  ·  ')}
+          {[match.tournamentName, match.venueText, match.districtName].filter(Boolean).join('  ·  ')}
         </Text>
       </View>
     </PressableScale>
