@@ -10,6 +10,7 @@ import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
 import { SheetHeader } from '@/components/sheet-header';
+import { LoginPromptBody } from '@/components/login-prompt';
 import { Text } from '@/components/text';
 import { createPost, getDistrict, getMyClubs } from '@/data/repo';
 import { useSession } from '@/lib/session';
@@ -27,7 +28,7 @@ export default function NewPost() {
   const [clubId, setClubId] = useState<string | undefined>(clubs[0]?.clubId);
   const [text, setText] = useState('');
   const [image, setImage] = useState<{ uri: string; ratio: number } | null>(null);
-  if (!user) return null;
+  if (!user) return <LoginPromptBody reason="Log in to post or start a match room." />;
 
   const club = clubs.find((x) => x.clubId === clubId);
   const district = getDistrict(club?.districtCode ?? user.homeDistrictCode);

@@ -19,7 +19,13 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.baskyclub.app"
+      "package": "com.baskyclub.app",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "single",
@@ -48,7 +54,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Choose photos to share in your posts."
+          "photosPermission": "Choose photos to share in your posts.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
     ],

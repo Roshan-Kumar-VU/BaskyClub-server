@@ -10,6 +10,7 @@ import { Field } from '@/components/field';
 import { Icon } from '@/components/icon';
 import { Segmented } from '@/components/segmented';
 import { SheetHeader } from '@/components/sheet-header';
+import { LoginPromptBody } from '@/components/login-prompt';
 import { Text } from '@/components/text';
 import { createMatch, findPlayer, getUser } from '@/data/repo';
 import { useSession } from '@/lib/session';
@@ -27,7 +28,7 @@ export default function NewMatch() {
   const [teamA, setTeamA] = useState<string[]>(user ? [user.userId] : []);
   const [teamB, setTeamB] = useState<string[]>([]);
   const [lookup, setLookup] = useState('');
-  if (!user) return null;
+  if (!user) return <LoginPromptBody reason="Log in to post or start a match room." />;
 
   const add = (side: 'A' | 'B') => {
     const p = findPlayer(lookup);

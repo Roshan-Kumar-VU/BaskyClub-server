@@ -8,7 +8,9 @@ import { Tag } from '@/components/badge';
 import { Button } from '@/components/button';
 import { Field } from '@/components/field';
 import { Text } from '@/components/text';
-import { answerInvite, answerJoinRequest, getClubDetail, getClubRequests, requestAffiliation } from '@/data/repo';
+import { EmptyState } from '@/components/empty-state';
+import { answerInvite, answerJoinRequest, canManageClub, getClubDetail, getClubRequests, requestAffiliation } from '@/data/repo';
+import { useSession } from '@/lib/session';
 import { useStoreVersion } from '@/data/store';
 import { timeAgo } from '@/lib/format';
 import { radius, space, useTheme } from '@/theme';
@@ -18,10 +20,15 @@ export default function ClubRequests() {
   useStoreVersion();
   const { c } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useSession();
   const [tnba, setTnba] = useState('');
   const d = getClubDetail(id);
-  const { joinRequests, invites } = getClubRequests(id);
   if (!d) return null;
+  // Opened by link? Only the club owner or admins may see this (decision #9; the API must check too).
+  if (!canManageClub(id, user?.userId)) {
+    return <EmptyState ios="lock.fill" android="lock" title="Owners and admins only" body={`Only ${d.club.clubName}'s owner or admins can manage requests.`} />;
+  }
+  const { joinRequests, invites } = getClubRequests(id);
   const assoc = d.coveringAssociation;
   const linkPending = invites.find((i) => i.direction === 'club_to_association' && i.status === 'pending');
 
