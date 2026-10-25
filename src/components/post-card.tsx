@@ -8,18 +8,17 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSeq
 import type { PostView } from '@/data/repo';
 import { compact, timeAgo } from '@/lib/format';
 import { useSession } from '@/lib/session';
-import { space, useTheme } from '@/theme';
+import { fonts, space, useTheme } from '@/theme';
 
 import { Avatar } from './avatar';
-import { OfficialBadge, Tag } from './badge';
-import { ClubBadge } from './club-badges';
+import { Tag } from './badge';
 import { Icon } from './icon';
 import { Photo } from './photo';
 import { Text } from './text';
 
 /**
- * Feed post. Double-tap the photo to like (big heart), tap the bubble to open
- * comments. Visitors get the login prompt for member actions.
+ * Feed post, edge to edge with a court line under it. Official association
+ * posts get a paint-blue band. Double-tap the photo to like.
  */
 export function PostCard({ post }: { post: PostView }) {
   const { c } = useTheme();
@@ -57,17 +56,20 @@ export function PostCard({ post }: { post: PostView }) {
   const openPost = () => router.push({ pathname: '/post/[id]', params: { id: post.postId } });
 
   return (
-    <View style={{ backgroundColor: c.card, marginBottom: space.sm }}>
+    <View style={{ borderBottomWidth: 1, borderBottomColor: c.line, paddingBottom: space.xs }}>
+      {official && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: space.lg, paddingVertical: 6, backgroundColor: c.official }}>
+          <Icon ios="pin.fill" android="push_pin" size={11} color="#fff" />
+          <Text variant="micro" style={{ color: '#fff' }}>{post.isPinned ? 'Pinned by the association' : 'From the association'}</Text>
+        </View>
+      )}
       <Pressable onPress={openAuthor} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, paddingTop: space.lg }}>
-        <Avatar name={official ? post.organization?.shortName ?? name : name} size={40} square={official} />
+        <Avatar name={official ? post.organization?.shortName ?? name : name} size={38} square={official} />
         <View style={{ flex: 1 }}>
           <Text variant="subheading" numberOfLines={1}>{name}</Text>
-          <Text variant="caption" color="textMuted" numberOfLines={1}>
-            {sub} · {timeAgo(post.createdAt)}
-          </Text>
+          <Text variant="caption" color="textMuted" numberOfLines={1}>{sub}</Text>
         </View>
-        {official && post.isPinned && <OfficialBadge />}
-        {!official && post.club && <ClubBadge category={post.club.category} verified={post.club.isVerified} small />}
+        <Text variant="caption" color="textMuted">{timeAgo(post.createdAt)}</Text>
       </Pressable>
 
       {post.status === 'pending_review' && (
@@ -78,7 +80,7 @@ export function PostCard({ post }: { post: PostView }) {
 
       {!!post.content && (
         <Pressable onPress={openPost}>
-          <Text style={{ paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: media ? space.md : 0 }}>{post.content}</Text>
+          <Text style={{ paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: media ? space.md : space.sm }}>{post.content}</Text>
         </Pressable>
       )}
 
@@ -93,20 +95,20 @@ export function PostCard({ post }: { post: PostView }) {
         </GestureDetector>
       )}
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.sm, paddingVertical: space.xs }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.sm, paddingTop: space.xs }}>
         <Pressable onPress={() => like()} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: space.sm }}>
           <Animated.View style={heart}>
-            <Icon ios={liked ? 'heart.fill' : 'heart'} android={liked ? 'favorite' : 'favorite_border'} color={liked ? c.accent : c.text} />
+            <Icon ios={liked ? 'heart.fill' : 'heart'} android={liked ? 'favorite' : 'favorite_border'} size={24} color={liked ? c.accent : c.text} />
           </Animated.View>
-          <Text variant="caption" tabular color="textSecondary">{compact(post.likeCount + (liked ? 1 : 0))}</Text>
+          <Text tabular style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: c.text }}>{compact(post.likeCount + (liked ? 1 : 0))}</Text>
         </Pressable>
         <Pressable onPress={openPost} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: space.sm }}>
-          <Icon ios="bubble.right" android="chat_bubble_outline" color={c.text} />
-          <Text variant="caption" tabular color="textSecondary">{compact(post.commentCount)}</Text>
+          <Icon ios="bubble.right" android="chat_bubble_outline" size={23} color={c.text} />
+          <Text tabular style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: c.text }}>{compact(post.commentCount)}</Text>
         </Pressable>
         <View style={{ flex: 1 }} />
         <Pressable hitSlop={8} style={{ padding: space.sm }} onPress={() => Share.share({ message: `${name} on BaskyCLub: ${post.content ?? ''}` })}>
-          <Icon ios="paperplane" android="send" color={c.text} />
+          <Icon ios="paperplane" android="send" size={23} color={c.text} />
         </Pressable>
       </View>
     </View>

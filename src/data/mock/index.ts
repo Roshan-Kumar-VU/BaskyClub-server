@@ -112,6 +112,12 @@ export const matches: Match[] = [
   { id: 'mt-7', category: 'friendly', districtCode: 'KL-EKM', createdByUserId: 'u-rahul', scorerUserId: 'u-rahul', sideA: { name: 'Kochi Tide', playerIds: ['u-rahul'] }, sideB: { name: 'Fort Kochi', playerIds: [] }, scoreA: 48, scoreB: 41, status: 'completed', quarter: 4, venueText: 'Regional Sports Centre', scheduledAt: hoursAgo(26) },
 ];
 
+/** Jersey numbers (team_roster.jerseyNumber in the Database Guide). */
+export const jerseyNumbers: Record<string, string> = {
+  'u-roshan': '7', 'u-arjun': '23', 'u-vikram': '34', 'u-kavya': '11', 'u-divya': '3', 'u-meera': '5',
+  'u-nithya': '15', 'u-hari': '21', 'u-sanjay': '9', 'u-priya': '1', 'u-rahul': '12',
+};
+
 export const playerStats: PlayerStat[] = [
   { userId: 'u-roshan', matchesPlayed: 24, totalPoints: 342, totalRebounds: 98, totalAssists: 121 },
   { userId: 'u-arjun', matchesPlayed: 31, totalPoints: 496, totalRebounds: 87, totalAssists: 204 },

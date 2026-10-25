@@ -9,6 +9,7 @@ import { DistrictBanner } from '@/components/district-banner';
 import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
 import { MatchCard } from '@/components/match-card';
+import { MetaLine } from '@/components/meta-line';
 import { PostCard } from '@/components/post-card';
 import { PressableScale } from '@/components/pressable-scale';
 import { ScreenHeader } from '@/components/screen-header';
@@ -113,7 +114,8 @@ function TournamentsTab() {
               <Tag label={t.gameSize} />
             </View>
             <Text variant="heading">{t.name}</Text>
-            <Text variant="caption" color="textMuted">{[t.location, matchTime(t.startDate)].filter(Boolean).join('  ·  ')}</Text>
+            <MetaLine ios="mappin" android="location_on" text={t.location} />
+            <MetaLine ios="calendar" android="event" text={matchTime(t.startDate)} />
             {t.organizerOrgId && <Text variant="caption" color="textSecondary">Organised by {getOrganization(t.organizerOrgId)?.name}</Text>}
           </View>
         ))

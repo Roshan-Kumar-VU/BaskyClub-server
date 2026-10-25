@@ -2,77 +2,88 @@ import { router } from 'expo-router';
 import { View } from 'react-native';
 
 import type { getProfile } from '@/data/repo';
-import { radius, space, useTheme } from '@/theme';
+import { fonts, space, useTheme } from '@/theme';
 
 import { Avatar } from './avatar';
+import { BoxScore } from './box-score';
 import { ClubBadge } from './club-badges';
+import { Hollow } from './hollow';
 import { MatchCard } from './match-card';
+import { MetaLine } from './meta-line';
 import { PostCard } from './post-card';
 import { PressableScale } from './pressable-scale';
-import { SectionHeader, StatTile } from './stat-tile';
+import { SectionHeader } from './stat-tile';
 import { Text } from './text';
 
 type Profile = NonNullable<ReturnType<typeof getProfile>>;
 const per = (t: number, g: number) => (g ? (t / g).toFixed(1) : '–');
+const positionName = { PG: 'Point guard', SG: 'Shooting guard', SF: 'Small forward', PF: 'Power forward', C: 'Center' } as const;
 
-/** Player profile body, shared by the Profile tab and public player pages. */
+/**
+ * Player profile, shared by the Profile tab and player pages. The jersey
+ * number sits huge and hollow behind the name — the one bold element.
+ */
 export function ProfileView({ p, actions }: { p: Profile; actions?: React.ReactNode }) {
   const { c } = useTheme();
+  const games = p.matchCounts.tournament + p.matchCounts.friendly + p.matchCounts.practice;
+  const club = p.clubs.find((x) => x.category !== 'academy') ?? p.clubs[0];
+
   return (
     <View style={{ paddingBottom: space.xxl }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.lg, paddingHorizontal: space.lg, paddingTop: space.lg }}>
-        <Avatar name={p.user.name} uri={p.user.avatarUrl} size={84} />
-        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-around' }}>
-          {[
-            { v: p.matchCounts.tournament + p.matchCounts.friendly + p.matchCounts.practice, l: 'Games' },
-            { v: p.posts.length, l: 'Posts' },
-            { v: p.clubs.length, l: 'Clubs' },
-          ].map((x) => (
-            <View key={x.l} style={{ alignItems: 'center' }}>
-              <Text variant="heading" tabular>{x.v}</Text>
-              <Text variant="caption" color="textMuted">{x.l}</Text>
-            </View>
-          ))}
+      {/* Jersey header */}
+      <View style={{ paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.xl, overflow: 'hidden' }}>
+        {p.jerseyNumber && (
+          <View pointerEvents="none" style={{ position: 'absolute', right: -6, top: -14, opacity: 0.55 }}>
+            <Hollow text={p.jerseyNumber} size={190} color={c.accent} strokeWidth={2} anchor="end" width={240} />
+          </View>
+        )}
+        <Avatar name={p.user.name} uri={p.user.avatarUrl} size={72} />
+        <Text style={{ fontFamily: fonts.display, fontSize: 34, lineHeight: 38, letterSpacing: -1, color: c.text, marginTop: space.lg, maxWidth: '75%' }}>
+          {p.user.name}
+        </Text>
+        <View style={{ marginTop: space.sm, gap: 4 }}>
+          {p.position && <MetaLine ios="figure.basketball" android="sports_basketball" text={`${positionName[p.position]}${p.jerseyNumber ? `, number ${p.jerseyNumber}` : ''}`} color={c.accent} />}
+          <MetaLine ios="shield" android="shield" text={club?.clubName} />
+          <MetaLine ios="mappin" android="location_on" text={p.district?.name} />
         </View>
-      </View>
-      <View style={{ paddingHorizontal: space.lg, paddingTop: space.md, gap: 2 }}>
-        <Text variant="subheading">{p.user.name}</Text>
-        <Text color="textSecondary">{[p.position, p.district?.name].filter(Boolean).join('  ·  ') || 'Basketball player'}</Text>
-      </View>
-      {actions && <View style={{ paddingHorizontal: space.lg, paddingTop: space.md }}>{actions}</View>}
-
-      <SectionHeader title="Games played" />
-      <View style={{ flexDirection: 'row', gap: space.sm, paddingHorizontal: space.lg }}>
-        <StatTile value={p.matchCounts.tournament} label="Tournament" />
-        <StatTile value={p.matchCounts.friendly} label="Friendly" />
-        <StatTile value={p.matchCounts.practice} label="Practice" />
+        {actions && <View style={{ marginTop: space.lg }}>{actions}</View>}
       </View>
 
       {p.stats && (
         <>
           <SectionHeader title="Per game" />
-          <View style={{ flexDirection: 'row', gap: space.sm, paddingHorizontal: space.lg }}>
-            <StatTile value={per(p.stats.totalPoints, p.stats.matchesPlayed)} label="Points" />
-            <StatTile value={per(p.stats.totalRebounds, p.stats.matchesPlayed)} label="Rebounds" />
-            <StatTile value={per(p.stats.totalAssists, p.stats.matchesPlayed)} label="Assists" />
-          </View>
+          <BoxScore
+            items={[
+              { value: per(p.stats.totalPoints, p.stats.matchesPlayed), label: 'Points' },
+              { value: per(p.stats.totalRebounds, p.stats.matchesPlayed), label: 'Rebounds' },
+              { value: per(p.stats.totalAssists, p.stats.matchesPlayed), label: 'Assists' },
+            ]}
+          />
+          <Text variant="caption" color="textMuted" style={{ paddingHorizontal: space.lg, paddingTop: space.sm }}>From tournament games only.</Text>
         </>
       )}
+
+      <SectionHeader title={`${games} ${games === 1 ? 'game' : 'games'} played`} />
+      <BoxScore
+        items={[
+          { value: p.matchCounts.tournament, label: 'Tournament' },
+          { value: p.matchCounts.friendly, label: 'Friendly' },
+          { value: p.matchCounts.practice, label: 'Practice' },
+        ]}
+      />
 
       {p.clubs.length > 0 && (
         <>
           <SectionHeader title="Clubs" />
-          <View style={{ marginHorizontal: space.lg, borderRadius: radius.lg, borderCurve: 'continuous', backgroundColor: c.card, overflow: 'hidden' }}>
-            {p.clubs.map((club, i) => (
-              <PressableScale key={club.clubId} scaleTo={0.99} onPress={() => router.push({ pathname: '/club/[id]', params: { id: club.clubId } })}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, borderTopWidth: i ? 0.5 : 0, borderTopColor: c.line }}>
-                  <Avatar name={club.clubName} size={40} square />
-                  <Text variant="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>{club.clubName}</Text>
-                  <ClubBadge category={club.category} verified={club.isVerified} small />
-                </View>
-              </PressableScale>
-            ))}
-          </View>
+          {p.clubs.map((cl, i) => (
+            <PressableScale key={cl.clubId} scaleTo={0.99} onPress={() => router.push({ pathname: '/club/[id]', params: { id: cl.clubId } })}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, borderTopWidth: i ? 1 : 0, borderTopColor: c.line }}>
+                <Avatar name={cl.clubName} size={40} square />
+                <Text variant="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>{cl.clubName}</Text>
+                <ClubBadge category={cl.category} verified={cl.isVerified} small />
+              </View>
+            </PressableScale>
+          ))}
         </>
       )}
 
@@ -88,7 +99,7 @@ export function ProfileView({ p, actions }: { p: Profile; actions?: React.ReactN
       {p.posts.length > 0 && (
         <>
           <SectionHeader title="Posts" />
-          {p.posts.map((post) => <PostCard key={post.postId} post={post} />)}
+          <View style={{ borderTopWidth: 1, borderTopColor: c.line }}>{p.posts.map((post) => <PostCard key={post.postId} post={post} />)}</View>
         </>
       )}
     </View>

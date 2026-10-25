@@ -44,3 +44,10 @@ export function hueFor(key: string): string {
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
   return avatarHues[h % avatarHues.length]!;
 }
+
+/** "just now", "5h ago", "3d ago" or a date. */
+export function ago(iso: string): string {
+  const t = timeAgo(iso);
+  if (t === 'now') return 'just now';
+  return /^\d+[mhd]$/.test(t) ? `${t} ago` : t;
+}

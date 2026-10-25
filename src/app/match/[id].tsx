@@ -13,6 +13,7 @@ import { Text } from '@/components/text';
 import { getMatch, handOverScoring, nextQuarter, scorePoints } from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
 import { useSession } from '@/lib/session';
+import { MetaLine } from '@/components/meta-line';
 import { fonts, radius, space, useTheme } from '@/theme';
 
 /** Match room: live scoreboard. The scorer's phone gets the +1/+2/+3 pad. */
@@ -83,29 +84,34 @@ export default function MatchRoom() {
         <Text variant="bodyStrong" color="accentText" onPress={() => Share.share({ message: `${match.sideA.name} ${match.scoreA}–${match.scoreB} ${match.sideB.name} · live on BaskyCLub` })}>Share</Text>
       ) }} />
       <ScrollView style={{ backgroundColor: c.background }} contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: space.xxl * 2 }}>
-        <View style={{ backgroundColor: '#1A1C1C', borderRadius: radius.xl, borderCurve: 'continuous', padding: space.xl, gap: space.lg }}>
+        <View style={{ backgroundColor: c.scoreboard, borderRadius: radius.xl, borderCurve: 'continuous', padding: space.xl, gap: space.lg, overflow: 'hidden' }}>
+          {/* Painted key: a court arc behind the score */}
+          <View pointerEvents="none" style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, borderWidth: 2, borderColor: 'rgba(255,255,255,0.08)', alignSelf: 'center', top: 40 }} />
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.sm }}>
             {match.status === 'live' ? <LiveBadge /> : <Tag label="Final" />}
-            <View style={{ paddingHorizontal: 10, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.12)', justifyContent: 'center' }}>
-              <Text variant="micro" style={{ color: '#fff' }}>{match.status === 'live' ? `Quarter ${match.quarter}` : 'Full time'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.12)' }}>
+              {[1, 2, 3, 4].map((q) => (
+                <View key={q} style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: q <= match.quarter ? '#FF6B00' : 'rgba(255,255,255,0.3)' }} />
+              ))}
+              <Text variant="micro" style={{ color: '#fff', marginLeft: 3 }}>{match.status === 'live' ? `Q${match.quarter}` : 'Full time'}</Text>
             </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {[{ n: match.sideA.name, s: match.scoreA, st: aStyle }, null, { n: match.sideB.name, s: match.scoreB, st: bStyle }].map((x, i) =>
               x ? (
                 <View key={i} style={{ flex: 1, alignItems: 'center', gap: space.sm }}>
-                  <Avatar name={x.n} size={44} square />
-                  <Text variant="bodyStrong" numberOfLines={1} style={{ color: '#fff' }}>{x.n}</Text>
-                  <Animated.Text style={[{ fontFamily: fonts.display, fontSize: 64, lineHeight: 70, letterSpacing: -2, color: '#fff', fontVariant: ['tabular-nums'] }, x.st]}>{x.s}</Animated.Text>
+                  <Text variant="bodyStrong" numberOfLines={1} style={{ color: 'rgba(255,255,255,0.85)' }}>{x.n}</Text>
+                  <Animated.Text style={[{ fontFamily: fonts.display, fontSize: 80, lineHeight: 86, letterSpacing: -2, color: '#fff', fontVariant: ['tabular-nums'] }, x.st]}>{x.s}</Animated.Text>
                 </View>
               ) : (
                 <Text key={i} style={{ fontFamily: fonts.display, fontSize: 28, color: 'rgba(255,255,255,0.35)' }}>:</Text>
               ),
             )}
           </View>
-          <Text variant="caption" style={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
-            {[match.tournamentName, match.venueText, match.districtName].filter(Boolean).join('  ·  ')}
-          </Text>
+          <View style={{ alignItems: 'center', gap: 3 }}>
+            <MetaLine ios="trophy" android="emoji_events" text={match.tournamentName} color="rgba(255,255,255,0.6)" />
+            <MetaLine ios="mappin" android="location_on" text={[match.venueText, match.districtName].filter(Boolean).join(', ')} color="rgba(255,255,255,0.6)" />
+          </View>
         </View>
 
         {isScorer ? (

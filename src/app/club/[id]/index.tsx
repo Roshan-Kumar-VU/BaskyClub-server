@@ -15,12 +15,14 @@ import { Photo } from '@/components/photo';
 import { PostCard } from '@/components/post-card';
 import { PressableScale } from '@/components/pressable-scale';
 import { Segmented } from '@/components/segmented';
-import { StatTile } from '@/components/stat-tile';
+import { BoxScore } from '@/components/box-score';
+import { Hollow } from '@/components/hollow';
 import { Text } from '@/components/text';
 import { cancelJoinRequest, canManageClub, getClubDetail, getClubRequests, getMembership, getMyJoinRequest, requestToJoin } from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
 import { useSession } from '@/lib/session';
 import { fonts, radius, space, useTheme } from '@/theme';
+import { initials } from '@/lib/format';
 
 type Section = 'posts' | 'people';
 const BANNER = 250;
@@ -51,7 +53,7 @@ export default function ClubPage() {
 
   const person = (key: string, name: string, role: string, userId?: string) => (
     <PressableScale key={key} scaleTo={0.99} disabled={!userId} onPress={() => userId && router.push({ pathname: '/user/[id]', params: { id: userId } })}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: c.line }}>
         <Avatar name={name} size={42} />
         <Text variant="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>{name}</Text>
         <Tag label={role} />
@@ -63,7 +65,13 @@ export default function ClubPage() {
     <Animated.ScrollView ref={ref} scrollEventThrottle={16} style={{ backgroundColor: c.background }}>
       <Animated.View style={[{ height: BANNER, overflow: 'hidden' }, banner]}>
         <Photo fill uri={club.bannerImageUrl} seed={club.clubId} />
-        <LinearGradient colors={['rgba(0,0,0,0.5)', 'transparent', 'rgba(0,0,0,0.3)']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['rgba(0,0,0,0.5)', 'transparent', 'rgba(0,0,0,0.55)']} style={StyleSheet.absoluteFill} />
+        {/* Jersey side-panel: hollow club initials across the banner */}
+        <View pointerEvents="none" style={{ position: 'absolute', left: -10, bottom: radius.xl + 6, flexDirection: 'row', gap: 14, opacity: 0.7 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <Hollow key={i} text={initials(club.clubName)} size={92} color="#fff" strokeWidth={1.4} width={initials(club.clubName).length * 80} />
+          ))}
+        </View>
       </Animated.View>
 
       <View style={{ backgroundColor: c.background, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, marginTop: -radius.xl }}>
@@ -81,28 +89,27 @@ export default function ClubPage() {
 
           {club.association && (
             <PressableScale onPress={() => router.push({ pathname: '/association/[id]', params: { id: club.association!.id } })}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.sm, padding: space.md, borderRadius: radius.lg, borderCurve: 'continuous', backgroundColor: c.officialSoft }}>
-                <Icon ios="building.columns.fill" android="account_balance" size={18} color={c.official} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.sm, padding: space.md, borderRadius: radius.lg, borderCurve: 'continuous', backgroundColor: c.scoreboard }}>
+                <Icon ios="building.columns.fill" android="account_balance" size={18} color="#fff" />
                 <View style={{ flex: 1 }}>
-                  <Text variant="caption" style={{ color: c.official, fontFamily: fonts.bodyBold }}>{club.association.name}</Text>
-                  {d.affiliation && <Text variant="micro" style={{ color: c.official }}>{d.affiliation.tnbaMembershipNumber} · valid until {new Date(d.affiliation.validUntil).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</Text>}
+                  <Text variant="caption" style={{ color: '#fff', fontFamily: fonts.bodyBold }}>{club.association.name}</Text>
+                  {d.affiliation && <Text variant="micro" style={{ color: 'rgba(255,255,255,0.75)' }}>{d.affiliation.tnbaMembershipNumber}, valid until {new Date(d.affiliation.validUntil).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</Text>}
                 </View>
-                <Icon ios="chevron.right" android="chevron_right" size={13} color={c.official} />
+                <Icon ios="chevron.right" android="chevron_right" size={13} color="#fff" />
               </View>
             </PressableScale>
           )}
 
-          <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md }}>
-            <StatTile value={club.memberCount} label="Members" />
-            <StatTile value={d.posts.length} label="Posts" />
-            <StatTile value={d.headCoach ? 1 + d.assistantCoaches.length : 0} label="Coaches" />
+
+          <View style={{ marginHorizontal: -space.lg, marginTop: space.lg }}>
+            <BoxScore items={[{ value: club.memberCount, label: 'Members' }, { value: d.posts.length, label: 'Posts' }, { value: d.headCoach ? 1 + d.assistantCoaches.length : 0, label: 'Coaches' }]} />
           </View>
 
-          <View style={{ marginTop: space.md, gap: space.sm }}>
+          <View style={{ marginTop: space.lg, gap: space.sm }}>
             {member ? (
               <Button kind="secondary" label={member.isOwner ? `You own this ${kind}` : `You're a member`} icon={<Icon ios="checkmark.circle.fill" android="check_circle" size={18} color={c.success} />} />
             ) : pending ? (
-              <Button kind="secondary" label="Request sent · Tap to cancel" onPress={() => cancelJoinRequest(id, user!.userId)} />
+              <Button kind="secondary" label="Request sent. Tap to cancel" onPress={() => cancelJoinRequest(id, user!.userId)} />
             ) : (
               <Button
                 label={`Request to join`}
@@ -125,10 +132,10 @@ export default function ClubPage() {
         </View>
 
         {section === 'posts' &&
-          (d.posts.length ? d.posts.map((p) => <PostCard key={p.postId} post={p} />) : <EmptyState ios="photo" android="photo" title="No posts yet" body={`Posts by ${club.clubName} members show up here.`} />)}
+          (d.posts.length ? <View style={{ borderTopWidth: 1, borderTopColor: c.line }}>{d.posts.map((p) => <PostCard key={p.postId} post={p} />)}</View> : <EmptyState ios="photo" android="photo" title="No posts yet" body={`Posts by ${club.clubName} members show up here.`} />)}
 
         {section === 'people' && (
-          <View style={{ marginHorizontal: space.lg, borderRadius: radius.lg, borderCurve: 'continuous', backgroundColor: c.card, overflow: 'hidden' }}>
+          <View style={{ borderTopWidth: 1, borderTopColor: c.line }}>
             {d.captain && person('cap', d.captain.name, 'Club captain', d.captain.userId)}
             {d.headCoach && person('hc', d.headCoach.name, 'Head coach', d.headCoach.userId)}
             {d.assistantCoaches.map((a) => person(a.id, a.name, 'Assistant coach', a.userId))}

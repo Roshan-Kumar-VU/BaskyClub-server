@@ -364,6 +364,7 @@ export function getProfile(userId: string) {
     user,
     district: getDistrict(user.homeDistrictCode),
     position: playing?.position,
+    jerseyNumber: db.jerseyNumbers[userId],
     clubs: getMyClubs(userId),
     stats: db.playerStats.find((p) => p.userId === userId),
     matchCounts: {

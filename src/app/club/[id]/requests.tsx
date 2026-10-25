@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/empty-state';
 import { answerInvite, answerJoinRequest, canManageClub, getClubDetail, getClubRequests, requestAffiliation } from '@/data/repo';
 import { useSession } from '@/lib/session';
 import { useStoreVersion } from '@/data/store';
-import { timeAgo } from '@/lib/format';
+import { ago } from '@/lib/format';
 import { radius, space, useTheme } from '@/theme';
 
 /** Owner/admin: join requests, association invites, and the link request to the association. */
@@ -47,7 +47,7 @@ export default function ClubRequests() {
               <Avatar name={r.user.name} size={44} />
               <View style={{ flex: 1 }}>
                 <Text variant="subheading">{r.user.name}</Text>
-                <Text variant="caption" color="textMuted">Asked to join · {timeAgo(r.createdAt)}</Text>
+                <Text variant="caption" color="textMuted">Asked to join {ago(r.createdAt)}</Text>
               </View>
             </View>
             <View style={{ flexDirection: 'row', gap: space.sm }}>

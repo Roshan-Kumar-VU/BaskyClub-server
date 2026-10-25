@@ -2,47 +2,49 @@ import { router } from 'expo-router';
 import { View } from 'react-native';
 
 import type { MatchView } from '@/data/repo';
-import { timeAgo } from '@/lib/format';
-import { radius, space, type, useTheme } from '@/theme';
+import { ago } from '@/lib/format';
+import { fonts, radius, space, useTheme } from '@/theme';
 
-import { Avatar } from './avatar';
-import { LiveBadge, Tag } from './badge';
+import { MetaLine } from './meta-line';
 import { PressableScale } from './pressable-scale';
 import { Text } from './text';
 
 export const categoryLabel = { tournament: 'Tournament', friendly: 'Friendly', practice: 'Practice' } as const;
 
-/** Scoreboard-style card. Scores use the display face with tabular figures. */
+/** A small scoreboard: paint-blue strip on top, two rows of big numerals. */
 export function MatchCard({ match, compactWidth }: { match: MatchView; compactWidth?: number }) {
   const { c } = useTheme();
   const done = match.status === 'completed';
   const aWon = done && match.scoreA > match.scoreB;
   const bWon = done && match.scoreB > match.scoreA;
+  const live = match.status === 'live';
 
-  const row = (name: string, score: number, won: boolean, dim: boolean) => (
+  const row = (name: string, score: number, won: boolean, lost: boolean) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-      <Avatar name={name} size={28} square />
-      <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1, opacity: dim ? 0.55 : 1 }}>{name}</Text>
-      <Text tabular style={[type.stat, { color: dim ? c.textMuted : c.text }]}>{score}</Text>
-      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: won ? c.accent : 'transparent' }} />
+      <Text variant="bodyStrong" numberOfLines={1} style={{ flex: 1, color: lost ? c.textMuted : c.text }}>{name}</Text>
+      {won && <View style={{ width: 0, height: 0, borderTopWidth: 5, borderBottomWidth: 5, borderRightWidth: 7, borderTopColor: 'transparent', borderBottomColor: 'transparent', borderRightColor: c.accent }} />}
+      <Text tabular style={{ fontFamily: fonts.display, fontSize: 30, lineHeight: 34, letterSpacing: -1, color: lost ? c.textMuted : c.text, minWidth: 48, textAlign: 'right' }}>{score}</Text>
     </View>
   );
 
   return (
     <PressableScale scaleTo={0.98} onPress={() => router.push({ pathname: '/match/[id]', params: { id: match.id } })}>
-      <View style={{ width: compactWidth, backgroundColor: c.card, borderRadius: radius.lg, borderCurve: 'continuous', padding: space.lg, gap: space.md, boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 6px 16px rgba(0,0,0,0.05)' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-          {match.status === 'live' && <LiveBadge />}
-          <Tag label={categoryLabel[match.category]} />
-          <Text variant="caption" color="textMuted" numberOfLines={1} style={{ flex: 1, textAlign: 'right' }}>
-            {match.status === 'live' ? `Q${match.quarter}` : `Final · ${timeAgo(match.scheduledAt)}`}
+      <View style={{ width: compactWidth, backgroundColor: c.card, borderRadius: radius.lg, borderCurve: 'continuous', borderWidth: 1, borderColor: c.line, overflow: 'hidden' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.lg, paddingVertical: 7, backgroundColor: live ? c.scoreboard : c.cardMuted }}>
+          {live && <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#FF5449' }} />}
+          <Text variant="micro" style={{ color: live ? '#fff' : c.textSecondary, flex: 1 }}>
+            {live ? `Live, quarter ${match.quarter}` : `Final, ${ago(match.scheduledAt)}`}
           </Text>
+          <Text variant="micro" style={{ color: live ? 'rgba(255,255,255,0.75)' : c.textMuted }}>{categoryLabel[match.category]}</Text>
         </View>
-        {row(match.sideA.name, match.scoreA, aWon, bWon)}
-        {row(match.sideB.name, match.scoreB, bWon, aWon)}
-        <Text variant="caption" color="textMuted" numberOfLines={1}>
-          {[match.tournamentName, match.venueText, match.districtName].filter(Boolean).join('  ·  ')}
-        </Text>
+        <View style={{ padding: space.lg, paddingTop: space.md, gap: 2 }}>
+          {row(match.sideA.name, match.scoreA, aWon, bWon)}
+          {row(match.sideB.name, match.scoreB, bWon, aWon)}
+          <View style={{ marginTop: space.sm, gap: 3 }}>
+            <MetaLine ios="trophy" android="emoji_events" text={match.tournamentName} />
+            <MetaLine ios="mappin" android="location_on" text={[match.venueText, match.districtName].filter(Boolean).join(', ')} />
+          </View>
+        </View>
       </View>
     </PressableScale>
   );
