@@ -43,8 +43,8 @@ export default function Clubs() {
             {mine.map((club) => (
               <PressableScale key={club.clubId} onPress={() => router.push({ pathname: '/club/[id]', params: { id: club.clubId } })}>
                 <View style={{ width: 120, alignItems: 'center', gap: space.sm, padding: space.md, borderRadius: radius.lg, borderCurve: 'continuous', backgroundColor: c.card }}>
-                  <Avatar name={club.clubName} size={56} square />
-                  <Text variant="caption" numberOfLines={2} style={{ textAlign: 'center', fontFamily: fonts.bodyBold }}>{club.clubName}</Text>
+                  <Avatar name={club.name} size={56} square />
+                  <Text variant="caption" numberOfLines={2} style={{ textAlign: 'center', fontFamily: fonts.bodyBold }}>{club.name}</Text>
                 </View>
               </PressableScale>
             ))}

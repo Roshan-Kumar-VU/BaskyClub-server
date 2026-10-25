@@ -1,69 +1,65 @@
 /**
- * Mock geography. The real app loads the approved 786-district seed
- * (districts_india.csv); this keeps all 38 Tamil Nadu districts plus a few
- * from other states so the picker and scope toggle can be tested.
+ * Mock places and associations. The real app loads the approved seed
+ * (36 states, 786 districts, zones) from the database. District codes follow
+ * SCHEMA_PHASE1 format: TN-VELLORE.
  */
-import type { District, Organization } from '@/types/models';
+import type { District, Organization, State } from '@/types/models';
 
-type Row = [code: string, name: string, alt?: string[]];
+type Row = [name: string, alt?: string[]];
 
 const TN: Row[] = [
-  ['ARI', 'Ariyalur'], ['CGL', 'Chengalpattu'], ['CHN', 'Chennai', ['Madras']], ['CBE', 'Coimbatore', ['Kovai']],
-  ['CUD', 'Cuddalore'], ['DPI', 'Dharmapuri'], ['DGL', 'Dindigul'], ['ERD', 'Erode'], ['KKR', 'Kallakurichi'],
-  ['KPM', 'Kancheepuram', ['Kanchipuram']], ['KKM', 'Kanniyakumari', ['Kanyakumari']], ['KRR', 'Karur'],
-  ['KGI', 'Krishnagiri'], ['MDU', 'Madurai'], ['MYD', 'Mayiladuthurai'], ['NGP', 'Nagapattinam'], ['NMK', 'Namakkal'],
-  ['NLG', 'Nilgiris', ['The Nilgiris', 'Ooty']], ['PBL', 'Perambalur'], ['PDK', 'Pudukkottai'], ['RMD', 'Ramanathapuram'],
-  ['RPT', 'Ranipet'], ['SLM', 'Salem'], ['SVG', 'Sivaganga'], ['TKS', 'Tenkasi'], ['TNJ', 'Thanjavur'], ['THN', 'Theni'],
-  ['TUT', 'Thoothukudi', ['Tuticorin']], ['TRY', 'Tiruchirappalli', ['Trichy', 'Tiruchi']], ['TNV', 'Tirunelveli'],
-  ['TPT', 'Tirupathur', ['Tirupattur']], ['TUP', 'Tiruppur', ['Tirupur']], ['TVL', 'Tiruvallur', ['Thiruvallur']],
-  ['TVM', 'Tiruvannamalai', ['Thiruvannamalai']], ['TVR', 'Tiruvarur', ['Thiruvarur']], ['VLR', 'Vellore'],
-  ['VPM', 'Viluppuram', ['Villupuram']], ['VNR', 'Virudhunagar'],
+  ['Ariyalur'], ['Chengalpattu'], ['Chennai', ['Madras']], ['Coimbatore', ['Kovai']], ['Cuddalore'], ['Dharmapuri'],
+  ['Dindigul'], ['Erode'], ['Kallakurichi'], ['Kancheepuram', ['Kanchipuram']], ['Kanniyakumari', ['Kanyakumari']],
+  ['Karur'], ['Krishnagiri'], ['Madurai'], ['Mayiladuthurai'], ['Nagapattinam'], ['Namakkal'], ['Nilgiris', ['The Nilgiris', 'Ooty']],
+  ['Perambalur'], ['Pudukkottai'], ['Ramanathapuram'], ['Ranipet'], ['Salem'], ['Sivaganga'], ['Tenkasi'], ['Thanjavur'],
+  ['Theni'], ['Thoothukudi', ['Tuticorin']], ['Tiruchirappalli', ['Trichy', 'Tiruchi']], ['Tirunelveli'], ['Tirupathur', ['Tirupattur']],
+  ['Tiruppur', ['Tirupur']], ['Tiruvallur', ['Thiruvallur']], ['Tiruvannamalai', ['Thiruvannamalai']], ['Tiruvarur', ['Thiruvarur']],
+  ['Vellore'], ['Viluppuram', ['Villupuram']], ['Virudhunagar'],
 ];
 
-/** The 6 newer districts point to their parent's association until confirmed (APP_NAV 7.3). */
-const NEWER_PARENT: Record<string, string> = {
-  CGL: 'KPM', KKR: 'VPM', RPT: 'VLR', TKS: 'TNV', TPT: 'VLR', MYD: 'NGP',
-};
+const code = (name: string) => `TN-${name.toUpperCase().replace(/[^A-Z]/g, '')}`;
 
-/** Associations that have claimed their page in the demo data. */
-const CLAIMED = new Set(['CHN', 'CBE']);
+/**
+ * TNBA has 35 district associations for 38 districts (#61). PROVISIONAL mock:
+ * these three newer districts point to their parent's association until the
+ * latest TNBA list is entered from the super-admin screens.
+ */
+const COVERED_BY_PARENT: Record<string, string> = { Mayiladuthurai: 'Nagapattinam', Kallakurichi: 'Viluppuram', Tirupathur: 'Vellore' };
+
+/** Page status per association in the demo (#59): Vellore claimed, Chennai published, rest draft. */
+const STATUS: Record<string, Organization['pageStatus']> = { Vellore: 'claimed', Chennai: 'published' };
+
+export const states: State[] = [
+  { code: 'TN', name: 'Tamil Nadu' },
+  { code: 'KL', name: 'Kerala' },
+  { code: 'KA', name: 'Karnataka' },
+  { code: 'PY', name: 'Puducherry' },
+];
 
 export const organizations: Organization[] = [
-  { id: 'org-bfi', name: 'Basketball Federation of India', shortName: 'BFI', level: 'national', isPartner: false, isPlaceholder: true },
-  { id: 'org-tnba', name: 'Tamil Nadu Basketball Association', shortName: 'TNBA', level: 'state', parentId: 'org-bfi', stateCode: 'TN', isPartner: false, isPlaceholder: true },
-  ...TN.filter(([code]) => !NEWER_PARENT[code]).map(([code, name]): Organization => ({
-    id: `org-TN-${code}`,
+  { id: 'org-bfi', name: 'Basketball Federation of India', shortName: 'BFI', level: 'national', pageStatus: 'published' },
+  { id: 'org-tnba', name: 'Tamil Nadu Basketball Association', shortName: 'TNBA', level: 'state', parentId: 'org-bfi', stateCode: 'TN', pageStatus: 'published' },
+  ...TN.filter(([name]) => !COVERED_BY_PARENT[name]).map(([name]): Organization => ({
+    id: `org-${code(name)}`,
     name: `${name} District Basketball Association`,
     shortName: `${name} DBA`,
     level: 'district',
     parentId: 'org-tnba',
     stateCode: 'TN',
-    districtCode: `TN-${code}`,
-    isPartner: code === 'CHN',
-    isPlaceholder: !CLAIMED.has(code),
+    pageStatus: STATUS[name] ?? 'draft',
+    about: name === 'Vellore' ? 'Runs district championships, school leagues and coaching camps across Vellore district.' : undefined,
   })),
-];
-
-const other: District[] = [
-  { code: 'KL-EKM', name: 'Ernakulam', altNames: ['Kochi', 'Cochin'], stateCode: 'KL', stateName: 'Kerala' },
-  { code: 'KL-TVM', name: 'Thiruvananthapuram', altNames: ['Trivandrum'], stateCode: 'KL', stateName: 'Kerala' },
-  { code: 'KA-BLR', name: 'Bengaluru Urban', altNames: ['Bangalore', 'Bengaluru'], stateCode: 'KA', stateName: 'Karnataka' },
-  { code: 'KA-MYS', name: 'Mysuru', altNames: ['Mysore'], stateCode: 'KA', stateName: 'Karnataka' },
-  { code: 'MH-MUM', name: 'Mumbai', altNames: ['Mumbai City', 'Bombay'], stateCode: 'MH', stateName: 'Maharashtra' },
-  { code: 'MH-PNE', name: 'Pune', stateCode: 'MH', stateName: 'Maharashtra' },
-  { code: 'TG-HYD', name: 'Hyderabad', stateCode: 'TG', stateName: 'Telangana' },
-  { code: 'DL-NDL', name: 'New Delhi', altNames: ['Delhi'], stateCode: 'DL', stateName: 'Delhi' },
-  { code: 'PY-PDY', name: 'Puducherry', altNames: ['Pondicherry'], stateCode: 'PY', stateName: 'Puducherry' },
 ];
 
 export const districts: District[] = [
-  ...TN.map(([code, name, alt]): District => ({
-    code: `TN-${code}`,
+  ...TN.map(([name, alt]): District => ({
+    code: code(name),
     name,
     altNames: alt,
     stateCode: 'TN',
-    stateName: 'Tamil Nadu',
-    basketballAssociationId: `org-TN-${NEWER_PARENT[code] ?? code}`,
+    associationId: `org-${code(COVERED_BY_PARENT[name] ?? name)}`,
   })),
-  ...other,
+  { code: 'KL-ERNAKULAM', name: 'Ernakulam', altNames: ['Kochi', 'Cochin'], stateCode: 'KL' },
+  { code: 'KA-BENGALURUURBAN', name: 'Bengaluru Urban', altNames: ['Bangalore', 'Bengaluru'], stateCode: 'KA' },
+  { code: 'PY-PUDUCHERRY', name: 'Puducherry', altNames: ['Pondicherry'], stateCode: 'PY' },
 ];

@@ -12,7 +12,21 @@ import { useScope } from '@/lib/scope';
 import { DEMO_USER_ID, useSession } from '@/lib/session';
 import { fonts, radius, space, useTheme } from '@/theme';
 
-/** Sign-up UI matching the users table. Mock: creates nothing, signs in as the demo account. */
+/** DD/MM/YYYY (spaces optional) → age in years, or undefined while incomplete. */
+function ageFromText(t: string): number | undefined {
+  const m = t.replace(/\s/g, '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return undefined;
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  const n = new Date();
+  let a = n.getFullYear() - d.getFullYear();
+  if (n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) a--;
+  return a;
+}
+
+/**
+ * Sign-up UI matching the users table. Under-18: a parent confirms by email
+ * and the account stays limited until then (#67). Mock: signs in as the demo account.
+ */
 export default function Signup() {
   const { c } = useTheme();
   const { login } = useSession();
@@ -20,7 +34,10 @@ export default function Signup() {
   const [f, setF] = useState({ name: '', email: '', phone: '', dob: '', password: '' });
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
-  const ready = Object.values(f).every(Boolean);
+  const age = ageFromText(f.dob);
+  const minor = age !== undefined && age < 18;
+  const [parentEmail, setParentEmail] = useState('');
+  const ready = Object.values(f).every(Boolean) && (!minor || /\S+@\S+\.\S+/.test(parentEmail));
 
   return (
     <AuthShell title="Create your account" subtitle="One profile for every club, match and tournament.">
@@ -28,6 +45,13 @@ export default function Signup() {
       <Field label="Email" value={f.email} onChangeText={set('email')} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" />
       <Field label="Mobile number" value={f.phone} onChangeText={set('phone')} placeholder="98765 43210" keyboardType="phone-pad" hint="Friends add you to match rooms with this number." />
       <Field label="Date of birth" value={f.dob} onChangeText={set('dob')} placeholder="DD / MM / YYYY" keyboardType="number-pad" hint="Decides age categories like U-16 and U-18." />
+      {minor && (
+        <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: c.officialSoft }}>
+          <Text variant="caption" style={{ color: c.official, fontFamily: fonts.bodyBold }}>Under 18? A parent needs to confirm.</Text>
+          <Text variant="caption" color="textSecondary">We'll email your parent a link. Until they confirm, you can look around but not post, comment or join clubs.</Text>
+          <Field label="Parent's email" value={parentEmail} onChangeText={setParentEmail} placeholder="parent@example.com" keyboardType="email-address" autoCapitalize="none" />
+        </View>
+      )}
       <View style={{ gap: 6 }}>
         <Text variant="caption" color="textSecondary" style={{ fontFamily: fonts.bodySemi }}>Plays in</Text>
         <Segmented value={gender} onChange={setGender} options={[{ value: 'male', label: "Men's" }, { value: 'female', label: "Women's" }]} />

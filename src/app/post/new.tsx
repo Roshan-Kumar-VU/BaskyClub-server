@@ -9,16 +9,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
-import { SheetHeader } from '@/components/sheet-header';
 import { LoginPromptBody } from '@/components/login-prompt';
+import { Segmented } from '@/components/segmented';
+import { SheetHeader } from '@/components/sheet-header';
 import { Text } from '@/components/text';
+import { youtubeId } from '@/components/youtube-card';
 import { createPost, getDistrict, getMyClubs } from '@/data/repo';
 import { useSession } from '@/lib/session';
+import type { Visibility } from '@/types/models';
 import { fonts, radius, space, useTheme } from '@/theme';
 
+const MAX_PHOTOS = 10;
+
 /**
- * New post. District is filled automatically: club post → club's district,
- * personal post → your home district. No manual district tagging.
+ * New post: up to 10 photos and/or one YouTube link. Posting as a club lets
+ * you choose who sees it (public / club page / members). District is filled
+ * automatically. No club → reviewed by the BaskyCLub team (#41).
  */
 export default function NewPost() {
   const { c } = useTheme();
@@ -26,31 +32,32 @@ export default function NewPost() {
   const { user } = useSession();
   const clubs = getMyClubs(user?.userId);
   const [clubId, setClubId] = useState<string | undefined>(clubs[0]?.clubId);
+  const [visibility, setVisibility] = useState<Visibility>('public');
   const [text, setText] = useState('');
-  const [image, setImage] = useState<{ uri: string; ratio: number } | null>(null);
-  if (!user) return <LoginPromptBody reason="Log in to post or start a match room." />;
+  const [images, setImages] = useState<{ uri: string; ratio: number }[]>([]);
+  const [yt, setYt] = useState('');
+  if (!user) return <LoginPromptBody reason="Log in to share a post." />;
 
   const club = clubs.find((x) => x.clubId === clubId);
   const district = getDistrict(club?.districtCode ?? user.homeDistrictCode);
+  const ytValid = !yt.trim() || !!youtubeId(yt.trim());
 
   const pick = async () => {
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
-    if (!r.canceled && r.assets[0]) setImage({ uri: r.assets[0].uri, ratio: r.assets[0].width / Math.max(1, r.assets[0].height) });
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8, allowsMultipleSelection: true, selectionLimit: MAX_PHOTOS - images.length });
+    if (!r.canceled) setImages((cur) => [...cur, ...r.assets.map((a) => ({ uri: a.uri, ratio: a.width / Math.max(1, a.height) }))].slice(0, MAX_PHOTOS));
   };
 
   const share = () => {
-    const res = createPost({ userId: user.userId, clubId, content: text.trim(), imageUri: image?.uri, aspectRatio: image?.ratio });
+    const res = createPost({ userId: user.userId, clubId, content: text.trim(), visibility, images, youtube: yt.trim() || undefined });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
-    if (res.status === 'pending_review') {
-      Alert.alert('Sent for review', 'Posts from accounts without a club are checked by the BaskyCLub team before they appear.');
-    }
+    if (res.moderationStatus === 'in_review') Alert.alert('Sent for review', 'Posts from accounts without a club are checked by the BaskyCLub team before they appear.');
   };
 
-  const option = (id: string | undefined, label: string) => {
+  const asOption = (id: string | undefined, label: string) => {
     const active = clubId === id;
     return (
-      <Pressable key={label} onPress={() => setClubId(id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingLeft: 8, paddingRight: 14, borderRadius: radius.full, borderWidth: 1.5, borderColor: active ? c.accent : c.line, backgroundColor: active ? c.accentSoft : c.card }}>
+      <Pressable key={label} onPress={() => { setClubId(id); if (!id) setVisibility('public'); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingLeft: 8, paddingRight: 14, borderRadius: radius.full, borderWidth: 1.5, borderColor: active ? c.accent : c.line, backgroundColor: active ? c.accentSoft : c.card }}>
         <Avatar name={label} size={24} square={!!id} />
         <Text variant="caption" style={{ fontFamily: fonts.bodyBold }}>{label}</Text>
       </Pressable>
@@ -64,42 +71,63 @@ export default function NewPost() {
         <View style={{ gap: space.sm }}>
           <Text variant="caption" color="textSecondary" style={{ fontFamily: fonts.bodySemi }}>Post as</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
-            {clubs.map((cl) => option(cl.clubId, cl.clubName))}
-            {option(undefined, 'Just me')}
+            {clubs.map((cl) => asOption(cl.clubId, cl.name))}
+            {asOption(undefined, 'Just me')}
           </View>
         </View>
+
+        {club && (
+          <View style={{ gap: space.sm }}>
+            <Text variant="caption" color="textSecondary" style={{ fontFamily: fonts.bodySemi }}>Who can see it</Text>
+            <Segmented value={visibility} onChange={setVisibility} options={[{ value: 'public', label: 'Everyone' }, { value: 'club_page', label: 'Club page' }, { value: 'members', label: 'Members' }]} />
+          </View>
+        )}
+
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="Share an achievement, a game or club news…"
+          placeholder="Share a game, an achievement or club news…"
           placeholderTextColor={c.textMuted}
           selectionColor={c.accent}
           multiline
           autoFocus
-          style={{ minHeight: 120, color: c.text, fontFamily: fonts.body, fontSize: 17, lineHeight: 24, textAlignVertical: 'top' }}
+          style={{ minHeight: 110, color: c.text, fontFamily: fonts.body, fontSize: 17, lineHeight: 24, textAlignVertical: 'top' }}
         />
-        {image ? (
-          <View>
-            <Image source={image.uri} style={{ width: '100%', aspectRatio: image.ratio, borderRadius: radius.lg }} contentFit="cover" />
-            <Pressable onPress={() => setImage(null)} style={{ position: 'absolute', top: 10, right: 10, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon ios="xmark" android="close" size={13} color="#fff" weight="bold" />
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+          {images.map((im, i) => (
+            <View key={im.uri + i}>
+              <Image source={im.uri} style={{ width: 96, height: 96, borderRadius: radius.md }} contentFit="cover" />
+              <Pressable onPress={() => setImages((cur) => cur.filter((_, j) => j !== i))} style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon ios="xmark" android="close" size={10} color="#fff" weight="bold" />
+              </Pressable>
+            </View>
+          ))}
+          {images.length < MAX_PHOTOS && (
+            <Pressable onPress={pick} style={{ width: 96, height: 96, borderRadius: radius.md, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.line, alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <Icon ios="photo.badge.plus" android="add_photo_alternate" size={24} color={c.accent} />
+              <Text variant="micro" color="textSecondary">{images.length ? `${images.length}/${MAX_PHOTOS}` : 'Photos'}</Text>
             </Pressable>
+          )}
+        </ScrollView>
+
+        <View style={{ gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, height: 48, paddingHorizontal: space.md, borderRadius: radius.md, borderWidth: 1.5, borderColor: ytValid ? c.line : c.live }}>
+            <Icon ios="play.rectangle" android="smart_display" size={18} color="#FF0033" />
+            <TextInput value={yt} onChangeText={setYt} placeholder="YouTube link (optional)" placeholderTextColor={c.textMuted} autoCapitalize="none" keyboardType="url" style={{ flex: 1, color: c.text, fontFamily: fonts.bodyMedium, fontSize: 15 }} />
           </View>
-        ) : (
-          <Pressable onPress={pick} style={{ height: 120, borderRadius: radius.lg, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.line, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <Icon ios="photo.badge.plus" android="add_photo_alternate" size={28} color={c.accent} />
-            <Text variant="caption" color="textSecondary">Add a photo</Text>
-          </Pressable>
-        )}
+          {!ytValid && <Text variant="caption" style={{ color: c.live }}>That doesn't look like a YouTube link. Paste the link from the YouTube Share button.</Text>}
+        </View>
+
         <View style={{ flexDirection: 'row', gap: space.sm, alignItems: 'flex-start', padding: space.md, borderRadius: radius.md, backgroundColor: c.cardMuted }}>
           <Icon ios="info.circle" android="info" size={16} color={c.textMuted} />
           <Text variant="caption" color="textSecondary" style={{ flex: 1 }}>
-            Posting to {district?.name ?? 'All India'}. {club ? 'Checked automatically before it goes live.' : 'Checked automatically and reviewed by the BaskyCLub team.'}
+            {club ? `Posting for ${club.name} in ${district?.name ?? 'its district'}. Checked automatically before it goes live.` : `Posting to ${district?.name ?? 'All India'}. Without a club, the BaskyCLub team reviews posts before they appear.`}
           </Text>
         </View>
       </ScrollView>
       <View style={{ padding: space.lg, paddingBottom: insets.bottom + space.md }}>
-        <Button label="Share post" disabled={!text.trim() && !image} onPress={share} />
+        <Button label="Share post" disabled={(!text.trim() && !images.length && !yt.trim()) || !ytValid} onPress={share} />
       </View>
     </KeyboardAvoidingView>
   );

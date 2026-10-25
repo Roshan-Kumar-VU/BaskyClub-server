@@ -65,14 +65,12 @@ function App() {
             contentStyle: { backgroundColor: c.background },
           }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="create-sheet" options={sheet} />
           <Stack.Screen name="login-prompt" options={sheet} />
           <Stack.Screen name="location-explainer" options={sheet} />
           <Stack.Screen name="district-picker" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />
           <Stack.Screen name="post/new" options={{ presentation: 'modal', headerShown: false }} />
-          <Stack.Screen name="match/new" options={{ presentation: 'modal', headerShown: false }} />
-          <Stack.Screen name="match/[id]" options={{ title: 'Match room' }} />
+          <Stack.Screen name="alerts" options={{ title: 'Alerts' }} />
           <Stack.Screen name="club/[id]/index" options={{ headerTransparent: true, title: '', headerTintColor: '#fff' }} />
           <Stack.Screen name="club/[id]/requests" options={{ title: 'Requests' }} />
           <Stack.Screen name="association/[id]" options={{ title: '' }} />

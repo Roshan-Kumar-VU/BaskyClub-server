@@ -1,11 +1,10 @@
-import { router } from 'expo-router';
 import { NativeTabs } from 'expo-router/native-tabs';
 
 import { useTheme } from '@/theme';
 
 /**
- * Fixed 5-tab bar (APP_NAV section 3). The + tab never opens a screen: it is
- * disabled for native selection and its press opens the create sheet.
+ * Phase 1 tab bar: Home · Clubs · Profile. Matches is hidden until Phase 2
+ * (#70–75); the post button and alerts bell live in the Home header.
  */
 export default function TabsLayout() {
   const { c } = useTheme();
@@ -14,14 +13,6 @@ export default function TabsLayout() {
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="matches">
-        <NativeTabs.Trigger.Label>Matches</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'sportscourt', selected: 'sportscourt.fill' }} md="scoreboard" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="create" disabled listeners={{ tabPress: () => router.push('/create-sheet') }}>
-        <NativeTabs.Trigger.Label hidden />
-        <NativeTabs.Trigger.Icon sf="plus.circle.fill" md="add_circle" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="clubs">
         <NativeTabs.Trigger.Label>Clubs</NativeTabs.Trigger.Label>

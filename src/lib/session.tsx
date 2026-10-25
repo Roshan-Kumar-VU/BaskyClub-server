@@ -4,7 +4,7 @@
 import { router } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { getUser } from '@/data/repo';
+import { getUser, setViewer } from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
 import type { User } from '@/types/models';
 
@@ -45,6 +45,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const user = getUser(userId);
+  setViewer(user?.userId);
 
   const requireLogin = useCallback(
     (action: () => void) => {
