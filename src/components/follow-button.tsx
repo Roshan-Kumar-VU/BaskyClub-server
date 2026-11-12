@@ -1,3 +1,6 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import * as Haptics from 'expo-haptics';
 
 import { isFollowing, toggleFollow } from '@/data/repo';
@@ -20,7 +23,7 @@ export function FollowButton({ type, id, compact }: { type: Follow['targetType']
       onPress={() =>
         requireLogin(() => {
           Haptics.selectionAsync();
-          toggleFollow(user!.userId, type, id);
+          toggleFollow(user!.userId, type, id).catch(() => {});
         })
       }
     />

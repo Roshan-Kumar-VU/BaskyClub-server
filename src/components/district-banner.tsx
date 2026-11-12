@@ -1,3 +1,6 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import { router } from 'expo-router';
 import { View } from 'react-native';
 

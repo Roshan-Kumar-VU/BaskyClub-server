@@ -1,5 +1,8 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import { router } from 'expo-router';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Icon } from '@/components/icon';
@@ -38,9 +41,19 @@ export default function Profile() {
   }
 
   const p = getProfile(user.userId);
-  const rows = [
+  const roles = user.platformRoles;
+  const isMod = roles.some((r) => r === 'moderator' || r === 'basky_admin' || r === 'super_admin');
+  const isTeam = roles.some((r) => r === 'basky_admin' || r === 'super_admin');
+  type R = { label: string; value?: string; ios: string; android: string; onPress: () => void; danger?: boolean };
+  const rows: R[] = [
     { label: 'Home district', value: getDistrict(user.homeDistrictCode)?.name ?? 'Not set', ios: 'mappin.and.ellipse', android: 'location_on', onPress: () => router.push('/district-picker') },
-    { label: 'Edit profile', ios: 'pencil', android: 'edit', onPress: () => Alert.alert('Coming soon', 'Profile editing connects to the server in a later step.') },
+    { label: 'Edit profile', ios: 'pencil', android: 'edit', onPress: () => router.push('/settings/profile') },
+    { label: 'Change password', ios: 'key', android: 'key', onPress: () => router.push('/settings/password') },
+    ...(!user.isMinor ? [{ label: 'Register a club', ios: 'plus.circle', android: 'add_circle', onPress: () => router.push('/club/new') }] : []),
+    ...(!user.isMinor ? [{ label: 'Creator badge', value: { none: undefined, requested: 'Requested', active: 'Active', declined: 'Not this time' }[user.creatorBadge.status], ios: 'star.circle', android: 'stars', onPress: () => router.push('/settings/creator') }] : []),
+    ...user.orgMemberships.map((m) => ({ label: m.organization.name, value: m.accessLevel, ios: 'building.columns', android: 'account_balance', onPress: () => router.push({ pathname: '/association/[id]/manage', params: { id: m.organizationId } }) })),
+    ...(isMod ? [{ label: 'Review queue', ios: 'checkmark.shield', android: 'verified_user', onPress: () => router.push('/admin/moderation') }] : []),
+    ...(isTeam ? [{ label: 'Admin', ios: 'gearshape', android: 'settings', onPress: () => router.push('/admin') }] : []),
     { label: 'Log out', ios: 'rectangle.portrait.and.arrow.right', android: 'logout', onPress: logout, danger: true },
   ];
 
@@ -52,7 +65,7 @@ export default function Profile() {
         <SectionHeader title="Settings" />
         <View style={{ marginHorizontal: space.lg, marginBottom: space.xxl * 2, borderRadius: radius.lg, borderCurve: 'continuous', backgroundColor: c.card, overflow: 'hidden' }}>
           {rows.map((r, i) => (
-            <PressableScale key={r.label} scaleTo={0.99} onPress={r.onPress}>
+            <PressableScale key={r.label} accessibilityLabel={r.label} scaleTo={0.99} onPress={r.onPress}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, borderTopWidth: i ? 0.5 : 0, borderTopColor: c.line }}>
                 <Icon ios={r.ios} android={r.android} color={r.danger ? c.live : c.accent} />
                 <Text variant="bodyStrong" style={{ flex: 1, color: r.danger ? c.live : c.text }}>{r.label}</Text>

@@ -1,3 +1,6 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
 import { ScrollView, View } from 'react-native';
@@ -9,7 +12,8 @@ import { Text } from '@/components/text';
 import { answerJoinRequest, canManageClub, getClubDetail, getJoinRequests } from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
 import { ago } from '@/lib/format';
-import { useSession } from '@/lib/session';
+import { notify } from '@/lib/notify';
+import { errorMessage, useSession } from '@/lib/session';
 import { radius, space, useTheme } from '@/theme';
 
 /**
@@ -41,8 +45,8 @@ export default function ClubRequests() {
             </View>
           </View>
           <View style={{ flexDirection: 'row', gap: space.sm }}>
-            <View style={{ flex: 1 }}><Button compact label="Accept" onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); answerJoinRequest(r.id, true); }} /></View>
-            <View style={{ flex: 1 }}><Button compact kind="secondary" label="Decline" onPress={() => answerJoinRequest(r.id, false)} /></View>
+            <View style={{ flex: 1 }}><Button compact label="Accept" onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); answerJoinRequest(r.id, true).catch((e) => notify('Error', errorMessage(e))); }} /></View>
+            <View style={{ flex: 1 }}><Button compact kind="secondary" label="Decline" onPress={() => answerJoinRequest(r.id, false).catch((e) => notify('Error', errorMessage(e)))} /></View>
           </View>
         </View>
       ))}

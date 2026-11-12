@@ -1,3 +1,6 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -9,7 +12,8 @@ import { Icon } from '@/components/icon';
 import { Segmented } from '@/components/segmented';
 import { Text } from '@/components/text';
 import { useScope } from '@/lib/scope';
-import { DEMO_USER_ID, useSession } from '@/lib/session';
+import { notify } from '@/lib/notify';
+import { errorMessage, useSession } from '@/lib/session';
 import { fonts, radius, space, useTheme } from '@/theme';
 
 /** DD/MM/YYYY (spaces optional) → age in years, or undefined while incomplete. */
@@ -23,21 +27,58 @@ function ageFromText(t: string): number | undefined {
   return a;
 }
 
+/** DD/MM/YYYY → YYYY-MM-DD for the API. */
+function isoFromText(t: string): string | undefined {
+  const m = t.replace(/\s/g, '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : undefined;
+}
+
 /**
- * Sign-up UI matching the users table. Under-18: a parent confirms by email
- * and the account stays limited until then (#67). Mock: signs in as the demo account.
+ * Sign-up matching the users table (shared API). Under-18: a parent confirms by
+ * email and the account stays limited until then (#67).
  */
 export default function Signup() {
   const { c } = useTheme();
-  const { login } = useSession();
-  const { districtName } = useScope();
+  const { signup } = useSession();
+  const { districtName, districtCode } = useScope();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [f, setF] = useState({ name: '', email: '', phone: '', dob: '', password: '' });
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
   const age = ageFromText(f.dob);
   const minor = age !== undefined && age < 18;
   const [parentEmail, setParentEmail] = useState('');
-  const ready = Object.values(f).every(Boolean) && (!minor || /\S+@\S+\.\S+/.test(parentEmail));
+  const [parentName, setParentName] = useState('');
+  const ready = Object.values(f).every(Boolean) && (!minor || (/\S+@\S+\.\S+/.test(parentEmail) && parentName.trim().length > 1));
+
+  const create = async () => {
+    const dateOfBirth = isoFromText(f.dob);
+    if (!dateOfBirth) return setError('Enter your date of birth as DD/MM/YYYY.');
+    setLoading(true);
+    setError('');
+    try {
+      const r = await signup({
+        name: f.name.trim(),
+        email: f.email.trim(),
+        phone: f.phone,
+        dateOfBirth,
+        password: f.password,
+        gender,
+        homeDistrictCode: districtCode ?? undefined,
+        ...(minor ? { parentName: parentName.trim(), parentEmail: parentEmail.trim() } : {}),
+      });
+      if (router.canGoBack()) router.back();
+      else router.replace('/');
+      if (r.awaitingParent) {
+        notify('Almost there', `We emailed your parent at ${parentEmail}. You can look around now; posting, comments and clubs open once they confirm.`);
+      }
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <AuthShell title="Create your account" subtitle="One profile for every club, match and tournament.">
@@ -49,6 +90,7 @@ export default function Signup() {
         <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: c.officialSoft }}>
           <Text variant="caption" style={{ color: c.official, fontFamily: fonts.bodyBold }}>Under 18? A parent needs to confirm.</Text>
           <Text variant="caption" color="textSecondary">We'll email your parent a link. Until they confirm, you can look around but not post, comment or join clubs.</Text>
+          <Field label="Parent's name" value={parentName} onChangeText={setParentName} placeholder="Parent or guardian" autoComplete="name" />
           <Field label="Parent's email" value={parentEmail} onChangeText={setParentEmail} placeholder="parent@example.com" keyboardType="email-address" autoCapitalize="none" />
         </View>
       )}
@@ -64,7 +106,8 @@ export default function Signup() {
         </Pressable>
       </View>
       <Field label="Password" value={f.password} onChangeText={set('password')} placeholder="At least 8 characters" secureTextEntry autoComplete="new-password" />
-      <Button label="Create account" disabled={!ready} onPress={() => { login(DEMO_USER_ID); router.back(); }} />
+      {!!error && <Text variant="caption" style={{ color: c.live }}>{error}</Text>}
+      <Button label="Create account" disabled={!ready || loading} loading={loading} onPress={create} />
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.xs, marginTop: space.sm }}>
         <Text color="textSecondary">Already have an account?</Text>
         <Text color="accentText" style={{ fontFamily: fonts.bodyBold }} onPress={() => router.replace('/auth/login')}>Log in</Text>

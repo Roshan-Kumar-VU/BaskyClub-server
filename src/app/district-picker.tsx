@@ -1,3 +1,6 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';

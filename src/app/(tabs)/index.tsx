@@ -1,3 +1,6 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -14,7 +17,7 @@ import { ScreenHeader } from '@/components/screen-header';
 import { Text } from '@/components/text';
 import { TopTabs } from '@/components/top-tabs';
 import { Wordmark } from '@/components/wordmark';
-import { canSeeOrg, getAlerts, getAssociationForDistrict, getFeed, getOrganization } from '@/data/repo';
+import { canSeeOrg, getAlerts, getAssociationForDistrict, getFeed, getOrganization, refreshFeed } from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
 import { useScope } from '@/lib/scope';
 import { useSession } from '@/lib/session';
@@ -35,6 +38,7 @@ export default function Home() {
 
   const refresh = () => {
     setRefreshing(true);
+    refreshFeed(s);
     setTimeout(() => setRefreshing(false), 700);
   };
 
@@ -45,7 +49,7 @@ export default function Home() {
         scoped
         right={
           <>
-            <Pressable hitSlop={10} onPress={() => requireLogin(() => router.push('/alerts'))}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Alerts" hitSlop={10} onPress={() => requireLogin(() => router.push('/alerts'))}>
               <Icon ios="bell" android="notifications_none" size={23} color={c.text} />
               {!!user && alertCount > 0 && (
                 <View style={{ position: 'absolute', top: -4, right: -6, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
@@ -53,7 +57,7 @@ export default function Home() {
                 </View>
               )}
             </Pressable>
-            <Pressable hitSlop={10} onPress={() => requireLogin(() => router.push('/post/new'))}>
+            <Pressable accessibilityRole="button" accessibilityLabel="New post" hitSlop={10} onPress={() => requireLogin(() => router.push('/post/new'))}>
               <Icon ios="plus.app" android="add_box" size={25} color={c.text} />
             </Pressable>
           </>

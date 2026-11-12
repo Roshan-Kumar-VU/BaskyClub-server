@@ -1,3 +1,6 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -22,7 +25,9 @@ import { Text } from '@/components/text';
 import { cancelJoinRequest, canManageClub, getClubDetail, getJoinRequests, getMembership, getPendingMembership, requestToJoin } from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
 import { initials } from '@/lib/format';
-import { useSession } from '@/lib/session';
+import { leaveClub } from '@/data/manage';
+import { confirm, notify } from '@/lib/notify';
+import { errorMessage, useSession } from '@/lib/session';
 import { fonts, radius, space, useTheme } from '@/theme';
 
 type Section = 'posts' | 'people';
@@ -113,14 +118,14 @@ export default function ClubPage() {
               {member ? (
                 <Button kind="secondary" label="Member" icon={<Icon ios="checkmark.circle.fill" android="check_circle" size={18} color={c.success} />} />
               ) : pending ? (
-                <Button kind="secondary" label="Requested" onPress={() => cancelJoinRequest(id, user!.userId)} />
+                <Button kind="secondary" label="Requested" onPress={() => cancelJoinRequest(id, user!.userId).catch((e) => notify("Couldn't cancel", errorMessage(e)))} />
               ) : (
                 <Button
                   label="Join"
                   onPress={() =>
                     requireLogin(() => {
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                      requestToJoin(id, user!.userId);
+                      requestToJoin(id, user!.userId).catch((e) => notify("Couldn't send the request", errorMessage(e)));
                     })
                   }
                 />
@@ -132,7 +137,13 @@ export default function ClubPage() {
           </View>
           {pending && <Text variant="caption" color="textMuted">Waiting for the club owner or an admin to accept. Tap Requested to cancel.</Text>}
           {manager && (
-            <Button kind="ghost" label={reqCount ? `Join requests (${reqCount})` : 'Join requests'} onPress={() => router.push({ pathname: '/club/[id]/requests', params: { id } })} />
+            <View style={{ flexDirection: 'row', gap: space.sm }}>
+              <View style={{ flex: 1 }}><Button kind="secondary" label="Manage club" onPress={() => router.push({ pathname: '/club/[id]/manage', params: { id } })} /></View>
+              <View style={{ flex: 1 }}><Button kind="ghost" label={reqCount ? `Join requests (${reqCount})` : 'Join requests'} onPress={() => router.push({ pathname: '/club/[id]/requests', params: { id } })} /></View>
+            </View>
+          )}
+          {member && (
+            <Button kind="ghost" label="Leave club" onPress={() => confirm(`Leave ${club.name}?`, 'You can ask to join again later.', 'Leave', () => leaveClub(id).catch((e) => notify("Couldn't leave", errorMessage(e))))} />
           )}
 
           <View style={{ marginTop: space.md, marginBottom: space.md }}>

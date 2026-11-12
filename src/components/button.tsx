@@ -20,7 +20,7 @@ export function Button({ label, onPress, kind = 'primary', loading, disabled, co
   const bg = kind === 'primary' ? c.accent : kind === 'secondary' ? c.fill : 'transparent';
   const fg = kind === 'primary' ? c.onAccent : kind === 'secondary' ? c.text : c.accentText;
   return (
-    <PressableScale haptic onPress={onPress} disabled={disabled || loading} style={{ opacity: disabled ? 0.45 : 1 }}>
+    <PressableScale haptic accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!(disabled || loading) }} onPress={onPress} disabled={disabled || loading} style={{ opacity: disabled ? 0.45 : 1 }}>
       <View
         style={{
           height: compact ? 36 : 50,

@@ -1,6 +1,9 @@
-import { useLocalSearchParams } from 'expo-router';
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
+import { router, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -8,10 +11,12 @@ import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
 import { PostCard } from '@/components/post-card';
 import { Text } from '@/components/text';
-import { addComment, deleteComment, getComments, getPost } from '@/data/repo';
+import { addComment, deleteComment, getComments, getPost, isPostLoaded } from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
 import { timeAgo } from '@/lib/format';
-import { useSession } from '@/lib/session';
+import { deletePost, updateMyProfile } from '@/data/manage';
+import { confirm, notify } from '@/lib/notify';
+import { errorMessage, useSession } from '@/lib/session';
 import type { PostComment, User } from '@/types/models';
 import { fonts, radius, space, useTheme } from '@/theme';
 
@@ -29,8 +34,10 @@ export default function PostDetail() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const input = useRef<React.ComponentRef<typeof TextInput>>(null);
   const post = getPost(id);
+  if (!post && !isPostLoaded(id)) return <View style={{ flex: 1, backgroundColor: c.background }} />;
   if (!post) return <EmptyState ios="lock" android="lock" title="Post not available" body="It may be for club members only, or still in review." />;
   const comments = getComments(id);
+  const isMod = !!user?.platformRoles.some((r) => r === 'moderator' || r === 'basky_admin' || r === 'super_admin');
 
   const startReply = (cm: C) =>
     requireLogin(() => {
@@ -42,17 +49,20 @@ export default function PostDetail() {
   const send = () =>
     requireLogin(() => {
       if (!text.trim()) return;
-      addComment(id, user!.userId, text.trim(), replyTo ?? undefined);
-      if (replyTo) setOpen((o) => ({ ...o, [replyTo.parentId ?? replyTo.id]: true }));
+      const content = text.trim();
+      const target = replyTo;
       setText('');
       setReplyTo(null);
+      addComment(id, user!.userId, content, target ?? undefined)
+        .then(() => target && setOpen((o) => ({ ...o, [target.parentId ?? target.id]: true })))
+        .catch((e) => {
+          setText(content);
+          notify("Couldn't post the comment", errorMessage(e));
+        });
     });
 
   const remove = (cm: C) =>
-    Alert.alert('Delete comment?', 'Replies stay, and it will show as “Comment removed”.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteComment(cm.id) },
-    ]);
+    confirm('Delete comment?', 'Replies stay, and it will show as “Comment removed”.', 'Delete', () => deleteComment(cm.id).catch((e) => notify("Couldn't delete", errorMessage(e))));
 
   const row = (cm: C, reply: boolean) => (
     <View key={cm.id} style={{ flexDirection: 'row', gap: space.md, paddingLeft: reply ? space.lg + 46 : space.lg, paddingRight: space.lg, paddingVertical: space.sm }}>
@@ -69,7 +79,8 @@ export default function PostDetail() {
             <Text>{cm.content}</Text>
             <View style={{ flexDirection: 'row', gap: space.lg, marginTop: 4 }}>
               <Text variant="caption" color="textMuted" style={{ fontFamily: fonts.bodyBold }} onPress={() => startReply(cm)}>Reply</Text>
-              {user?.userId === cm.userId && <Text variant="caption" color="textMuted" style={{ fontFamily: fonts.bodyBold }} onPress={() => remove(cm)}>Delete</Text>}
+              {(user?.userId === cm.userId || user?.userId === post.authorId || isMod) && <Text variant="caption" color="textMuted" style={{ fontFamily: fonts.bodyBold }} onPress={() => remove(cm)}>Delete</Text>}
+              {!!user && user.userId !== cm.userId && <Text variant="caption" color="textMuted" style={{ fontFamily: fonts.bodyBold }} onPress={() => router.push({ pathname: '/report', params: { type: 'comment', id: cm.id } })}>Report</Text>}
             </View>
           </>
         )}
@@ -81,6 +92,23 @@ export default function PostDetail() {
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={100}>
       <ScrollView contentContainerStyle={{ paddingBottom: space.xl }} keyboardShouldPersistTaps="handled">
         <PostCard post={post} />
+        {!!user && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.lg, paddingHorizontal: space.lg, paddingTop: space.sm }}>
+            {post.authorId === user.userId && post.moderationStatus === 'published' && post.visibility !== 'members' && (
+              <Text variant="caption" color="accentText" style={{ fontFamily: fonts.bodyBold }} onPress={() => updateMyProfile(user.userId, { pinnedPostId: user.pinnedPostId === post.postId ? null : post.postId }).then(() => notify(user.pinnedPostId === post.postId ? 'Unpinned' : 'Pinned to your profile')).catch((e) => notify('Error', errorMessage(e)))}>
+                {user.pinnedPostId === post.postId ? 'Unpin from profile' : 'Pin to profile'}
+              </Text>
+            )}
+            {(post.authorId === user.userId || isMod) && (
+              <Text variant="caption" style={{ fontFamily: fonts.bodyBold, color: c.live }} onPress={() => confirm('Delete this post?', 'It disappears for everyone.', 'Delete', () => deletePost(post.postId).then(() => (router.canGoBack() ? router.back() : router.replace('/'))).catch((e) => notify('Error', errorMessage(e))))}>
+                Delete post
+              </Text>
+            )}
+            {post.authorId !== user.userId && (
+              <Text variant="caption" color="textMuted" style={{ fontFamily: fonts.bodyBold }} onPress={() => router.push({ pathname: '/report', params: { type: 'post', id: post.postId } })}>Report</Text>
+            )}
+          </View>
+        )}
         <Text variant="subheading" style={{ paddingHorizontal: space.lg, paddingVertical: space.md }}>
           {post.commentCount ? `${post.commentCount} comments` : 'No comments yet'}
         </Text>
@@ -118,7 +146,7 @@ export default function PostDetail() {
             selectionColor={c.accent}
             style={{ flex: 1, height: 40, paddingHorizontal: space.md, borderRadius: radius.full, backgroundColor: c.fill, color: c.text, fontFamily: fonts.body, fontSize: 15 }}
           />
-          <Pressable onPress={send} hitSlop={8} disabled={!text.trim()}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Send comment" onPress={send} hitSlop={8} disabled={!text.trim()}>
             <Icon ios="arrow.up.circle.fill" android="send" size={30} color={text.trim() ? c.accent : c.textMuted} />
           </Pressable>
         </View>

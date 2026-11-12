@@ -15,6 +15,7 @@ export function Field({ label, hint, ...props }: TextInputProps & { label: strin
       <TextInput
         placeholderTextColor={c.textMuted}
         selectionColor={c.accent}
+        accessibilityLabel={label}
         {...props}
         onFocus={(e) => {
           setFocused(true);

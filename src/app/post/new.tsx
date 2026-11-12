@@ -1,9 +1,12 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -15,7 +18,8 @@ import { SheetHeader } from '@/components/sheet-header';
 import { Text } from '@/components/text';
 import { youtubeId } from '@/components/youtube-card';
 import { createPost, getDistrict, getMyClubs } from '@/data/repo';
-import { useSession } from '@/lib/session';
+import { notify } from '@/lib/notify';
+import { errorMessage, useSession } from '@/lib/session';
 import type { Visibility } from '@/types/models';
 import { fonts, radius, space, useTheme } from '@/theme';
 
@@ -36,6 +40,7 @@ export default function NewPost() {
   const [text, setText] = useState('');
   const [images, setImages] = useState<{ uri: string; ratio: number }[]>([]);
   const [yt, setYt] = useState('');
+  const [sending, setSending] = useState(false);
   if (!user) return <LoginPromptBody reason="Log in to share a post." />;
 
   const club = clubs.find((x) => x.clubId === clubId);
@@ -47,11 +52,18 @@ export default function NewPost() {
     if (!r.canceled) setImages((cur) => [...cur, ...r.assets.map((a) => ({ uri: a.uri, ratio: a.width / Math.max(1, a.height) }))].slice(0, MAX_PHOTOS));
   };
 
-  const share = () => {
-    const res = createPost({ userId: user.userId, clubId, content: text.trim(), visibility, images, youtube: yt.trim() || undefined });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.back();
-    if (res.moderationStatus === 'in_review') Alert.alert('Sent for review', 'Posts from accounts without a club are checked by the BaskyCLub team before they appear.');
+  const share = async () => {
+    setSending(true);
+    try {
+      const res = await createPost({ userId: user.userId, clubId, content: text.trim(), visibility, images, youtube: yt.trim() || undefined });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.back();
+      if (res.moderationStatus === 'in_review') notify('Sent for review', 'Posts from accounts without a club are checked by the BaskyCLub team before they appear.');
+    } catch (e) {
+      notify("Couldn't share the post", errorMessage(e));
+    } finally {
+      setSending(false);
+    }
   };
 
   const asOption = (id: string | undefined, label: string) => {
@@ -127,7 +139,7 @@ export default function NewPost() {
         </View>
       </ScrollView>
       <View style={{ padding: space.lg, paddingBottom: insets.bottom + space.md }}>
-        <Button label="Share post" disabled={(!text.trim() && !images.length && !yt.trim()) || !ytValid} onPress={share} />
+        <Button label={sending ? 'Sharing…' : 'Share post'} loading={sending} disabled={sending || (!text.trim() && !images.length && !yt.trim()) || !ytValid} onPress={share} />
       </View>
     </KeyboardAvoidingView>
   );

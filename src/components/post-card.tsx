@@ -4,7 +4,7 @@ import { Pressable, Share, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 
-import { type PostView, togglePostLike } from '@/data/repo';
+import { type PostView, sharePost, togglePostLike } from '@/data/repo';
 import { compact, timeAgo } from '@/lib/format';
 import { useSession } from '@/lib/session';
 import { fonts, space, useTheme } from '@/theme';
@@ -44,7 +44,7 @@ export function PostCard({ post }: { post: PostView }) {
       if (onlyAdd && post.liked) return;
       Haptics.impactAsync(post.liked ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium);
       pop.value = withSequence(withSpring(1.35, { damping: 6, stiffness: 500 }), withSpring(1, { damping: 10 }));
-      togglePostLike(post.postId, user!.userId);
+      togglePostLike(post.postId, user!.userId).catch(() => {});
     });
 
   const doubleTap = Gesture.Tap()
@@ -106,19 +106,19 @@ export function PostCard({ post }: { post: PostView }) {
       {video?.url && <YouTubeCard url={video.url} />}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.sm, paddingTop: space.xs }}>
-        <Pressable onPress={() => like()} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: space.sm }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={post.liked ? 'Unlike' : 'Like'} onPress={() => like()} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: space.sm }}>
           <Animated.View style={heart}>
             <Icon ios={post.liked ? 'heart.fill' : 'heart'} android={post.liked ? 'favorite' : 'favorite_border'} size={24} color={post.liked ? c.accent : c.text} />
           </Animated.View>
           <Text tabular style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: c.text }}>{compact(post.likeCount)}</Text>
         </Pressable>
-        <Pressable onPress={openPost} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: space.sm }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Comments" onPress={openPost} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: space.sm }}>
           <Icon ios="bubble.right" android="chat_bubble_outline" size={23} color={c.text} />
           <Text tabular style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: c.text }}>{compact(post.commentCount)}</Text>
         </Pressable>
         <View style={{ flex: 1 }} />
         {post.visibility === 'public' && (
-          <Pressable hitSlop={8} style={{ padding: space.sm }} onPress={() => Share.share({ message: `${name} on BaskyCLub: ${post.content ?? ''}` })}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Share" hitSlop={8} style={{ padding: space.sm }} onPress={async () => { const url = await sharePost(post.postId); Share.share({ message: `${name} on BaskyCLub: ${post.content ?? ''}${url ? `\n${url}` : ''}` }); }}>
             <Icon ios="paperplane" android="send" size={23} color={c.text} />
           </Pressable>
         )}

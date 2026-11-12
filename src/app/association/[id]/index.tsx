@@ -1,8 +1,12 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { Button } from '@/components/button';
 import { Tag } from '@/components/badge';
 import { ClubRow } from '@/components/club-row';
 import { EmptyState } from '@/components/empty-state';
@@ -51,8 +55,11 @@ export default function AssociationPage() {
             </View>
             <Text variant="caption" style={{ color: 'rgba(255,255,255,0.75)' }}>{d.followers} followers</Text>
           </View>
-          <View style={{ marginTop: space.md }}>
+          <View style={{ marginTop: space.md, gap: space.sm }}>
             <FollowButton type="organization" id={org.id} />
+            {(d.viewer?.canManage || d.viewer?.canPostOfficially) && (
+              <Button kind="secondary" label="Manage association" onPress={() => router.push({ pathname: '/association/[id]/manage', params: { id: org.id } })} />
+            )}
           </View>
         </View>
 

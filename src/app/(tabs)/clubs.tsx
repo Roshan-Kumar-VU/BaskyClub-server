@@ -1,7 +1,10 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Chips } from '@/components/chips';
@@ -59,7 +62,21 @@ export default function Clubs() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <ScreenHeader title="Clubs" scoped>
+      <ScreenHeader
+        title="Clubs"
+        scoped
+        right={
+          <>
+            <Pressable accessibilityRole="button" accessibilityLabel="Map" hitSlop={10} onPress={() => router.push('/map')}>
+              <Icon ios="map" android="map" size={23} color={c.text} />
+            </Pressable>
+            {!!user && !user.isMinor && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Register a club" hitSlop={10} onPress={() => router.push('/club/new')}>
+                <Icon ios="plus.circle" android="add_circle" size={24} color={c.text} />
+              </Pressable>
+            )}
+          </>
+        }>
         <View style={{ paddingHorizontal: space.lg, paddingTop: space.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, height: 40, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: c.fill }}>
             <Icon ios="magnifyingglass" android="search" size={16} color={c.textMuted} />

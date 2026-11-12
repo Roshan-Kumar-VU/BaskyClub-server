@@ -1,3 +1,6 @@
+// Reads live data from the repository cache: opt out of React Compiler memoisation so updates show.
+'use no memo';
+
 /**
  * Global scope: All India ↔ District. One store, shared by Home, Matches and
  * Clubs, persisted to device storage (APP_NAV section 4).
