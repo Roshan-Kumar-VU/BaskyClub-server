@@ -1,0 +1,5 @@
+zone_code,state_code,zone_name,hq_district_code,is_provisional,source_note
+TN-Z-CHN,TN,Chennai Zone,TN-CHENNAI,false,Zone names from TNBA circular 32/2024 (22.10.2024)
+TN-Z-COI,TN,Coimbatore Zone,TN-COIMBATORE,false,Zone names from TNBA circular 32/2024 (22.10.2024)
+TN-Z-TRY,TN,Trichy Zone,TN-TIRUCHIRAPPALLI,false,Zone name from TNBA circular 32/2024; that year's zonal event was hosted by Karur DBA
+TN-Z-MDU,TN,Madurai Zone,TN-MADURAI,false,Zone names from TNBA circular 32/2024 (22.10.2024)

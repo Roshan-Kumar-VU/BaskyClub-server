@@ -1,0 +1,37 @@
+state_code,state_name,type
+AN,Andaman and Nicobar Islands,union_territory
+AP,Andhra Pradesh,state
+AR,Arunachal Pradesh,state
+AS,Assam,state
+BR,Bihar,state
+CH,Chandigarh,union_territory
+CG,Chhattisgarh,state
+DH,Dadra and Nagar Haveli and Daman and Diu,union_territory
+DL,Delhi,union_territory
+GA,Goa,state
+GJ,Gujarat,state
+HR,Haryana,state
+HP,Himachal Pradesh,state
+JK,Jammu and Kashmir,union_territory
+JH,Jharkhand,state
+KA,Karnataka,state
+KL,Kerala,state
+LA,Ladakh,union_territory
+LD,Lakshadweep,union_territory
+MP,Madhya Pradesh,state
+MH,Maharashtra,state
+MN,Manipur,state
+ML,Meghalaya,state
+MZ,Mizoram,state
+NL,Nagaland,state
+OD,Odisha,state
+PY,Puducherry,union_territory
+PB,Punjab,state
+RJ,Rajasthan,state
+SK,Sikkim,state
+TN,Tamil Nadu,state
+TS,Telangana,state
+TR,Tripura,state
+UP,Uttar Pradesh,state
+UK,Uttarakhand,state
+WB,West Bengal,state

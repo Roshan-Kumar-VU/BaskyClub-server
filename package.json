@@ -1,0 +1,38 @@
+{
+  "name": "baskyclub-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BaskyCLub shared backend: one API for the website and the iOS/Android app.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "prisma migrate reset --force --skip-seed && tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "test:prepare": "tsx scripts/prepare-test-db.ts",
+    "test": "tsx --test --test-force-exit --test-concurrency=1 tests/*.test.ts",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "bcryptjs": "3.0.3",
+    "jose": "6.2.14",
+    "next": "16.4.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "prisma": "5.22.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
