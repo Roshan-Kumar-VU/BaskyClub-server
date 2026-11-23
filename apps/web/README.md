@@ -18,6 +18,7 @@ Phone app / website  ──▶  API (this folder)  ──▶  PostgreSQL
 | `prisma/seed.ts` + `seed-data/` | Fills places (states, districts, zones) and the test accounts. |
 | `src/server/` | The engine room: login, permissions, and one *service* file per area with all the rules. |
 | `src/app/api/` | The web addresses (routes). Each one is a few lines that call a service. |
+| `src/app/` (outside `api/`) | Website pages: `/parent-consent` and `/reset-password` (the emailed links), `/p/:id` (shared post with link preview). |
 | `tests/` | Automated tests that log in as every role and check what they can and can't do. |
 
 How a request flows: `src/app/api/clubs/[id]/join/route.ts` → `requireViewer` (who is this?) → `memberships.service.ts → requestToJoin` (rules + database) → JSON reply.
