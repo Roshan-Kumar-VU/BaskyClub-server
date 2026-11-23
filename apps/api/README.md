@@ -169,6 +169,7 @@ Send the login token as `Authorization: Bearer <token>`.
 | PATCH / DELETE | /api/office-bearers/:id | staff | End a term (`termTo`) / remove a mistake |
 | GET / POST | /api/associations/:id/legacy | anyone / staff | Media / Legacy records with photos + YouTube |
 | PATCH / DELETE | /api/legacy/:id | staff | Edit / remove a record |
+| GET / POST | /api/associations/:id/import/office-bearers\|legacy | Basky team | Bulk upload from a spreadsheet (see below): GET = empty CSV template; POST form data `file` (+ `dryRun=1` for a report only) |
 | GET | /api/associations/:id/posts | anyone | Official posts (`POST /api/posts` with `organizationId`) |
 | GET / POST | /api/clubs/:id/affiliations | club staff | List / ask to affiliate `{ organizationId }` |
 | GET / POST | /api/associations/:id/affiliations | association staff | List (`?status=pending`) / invite `{ clubId }` |
@@ -188,6 +189,13 @@ Send the login token as `Authorization: Bearer <token>`.
 | GET / POST / DELETE | /api/admin/roles(/:id) | super admin (list: Basky team) | BaskyCLub roles |
 | GET | /api/admin/change-log | super admin | Who changed what |
 | PATCH | /api/admin/zones/:code · /api/admin/districts/:code | Basky team | Fix zones and districts |
+
+**Bulk upload (PRD §6).** The Basky team fills a sheet, downloads it as CSV (UTF-8) and uploads it for one association, also while its page is still a draft. Headers can be written any way (`Term From`, `term_from`); dates as `2024-04-01`, `01/04/2024` or `01-04-2024` (day first). Up to 500 rows / 1 MB. Every row is checked like adding it by hand; with `dryRun=1` you get `{ total, valid, errors: [{ line, field, message }], preview }`. Without it, nothing is saved unless every row is fine (`400 fix_rows` lists the problems). Rows already on the page, or twice in the file, are refused, so uploading the same file again makes no copies.
+
+| Kind | Columns (required in bold) |
+|---|---|
+| `office-bearers` | **name**, **designation**, **term_from**, term_to, sort_order, photo_url (https) |
+| `legacy` (Media) | **record_type** (`history` / `tournament_record` / `achievement`), **title**, year, story, winner, runner_up, photo_urls (https, separated by spaces or `\|`), youtube_url |
 
 **Who can send announcements to whom:** association team → club admins in its area, members of affiliated clubs, people living in a district it covers, its followers · club owner/admin → club members, followers · BaskyCLub team → everyone, a district. Limit: 10 a day per sender.
 

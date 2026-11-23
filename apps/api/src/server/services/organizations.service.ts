@@ -362,7 +362,7 @@ export async function deleteOfficeBearer(viewer: Viewer, bearerId: string) {
 
 // ---- Media / Legacy (#66) -----------------------------------------------------------------------------
 
-async function checkLegacyMedia(media: { mediaType: string; url: string }[] | undefined) {
+export async function checkLegacyMedia(media: { mediaType: string; url: string }[] | undefined) {
   const { normalizeYouTubeUrl } = await import("@baskyclub/shared");
   return (media ?? []).map((m, i) => {
     if (m.mediaType === "youtube") {
