@@ -126,7 +126,7 @@ export async function signup(input: SignupInput, ip: string | null) {
 
   let parentConsentLink: string | undefined;
   if (isMinor && link) {
-    const url = `${env.appUrl}/parent-consent?token=${link.token}`;
+    const url = `${env.webUrl}/parent-consent?token=${link.token}`;
     await sendEmail({
       to: input.parentEmail!,
       subject: `Please confirm ${input.name}'s BaskyCLub account`,
@@ -268,7 +268,7 @@ export async function forgotPassword(input: z.infer<typeof forgotPasswordInput>)
       subject: "Reset your BaskyCLub password",
       text:
         `Hello ${user.name},\n\nSomeone asked to reset your BaskyCLub password. If it was you, open this link within 1 hour:\n` +
-        `${env.appUrl}/reset-password?token=${token}\n\nIf it wasn't you, ignore this email — your password stays the same.`,
+        `${env.webUrl}/reset-password?token=${token}\n\nIf it wasn't you, ignore this email — your password stays the same.`,
     });
   }
   return { ok: true, message: "If an account exists for this email, we've sent a reset link." };

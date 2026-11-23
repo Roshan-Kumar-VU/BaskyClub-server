@@ -14,8 +14,13 @@ export const env = {
     }
     return new TextEncoder().encode(secret);
   },
-  get appUrl(): string {
-    return process.env.APP_URL ?? "http://localhost:3000";
+  /** Public address of this API: links to photos it stores (/api/files/...). */
+  get apiUrl(): string {
+    return (process.env.API_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  },
+  /** Public address of the website (apps/web): links in emails and shared posts. */
+  get webUrl(): string {
+    return (process.env.WEB_URL ?? "http://localhost:3001").replace(/\/$/, "");
   },
   /** Cost of the password scramble. 12 is the safe default; tests use a low value for speed. */
   get bcryptRounds(): number {

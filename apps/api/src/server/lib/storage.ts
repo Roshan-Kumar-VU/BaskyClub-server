@@ -39,7 +39,7 @@ export async function saveImage(bytes: Uint8Array, ext: ImageExt): Promise<strin
   const name = `${randomUUID()}.${ext}`;
   await mkdir(join(uploadRoot(), folder), { recursive: true });
   await writeFile(join(uploadRoot(), folder, name), bytes);
-  return `${env.appUrl}${FILES_PATH}${folder}/${name}`;
+  return `${env.apiUrl}${FILES_PATH}${folder}/${name}`;
 }
 
 /** Reads a locally stored file; null if missing or the path tries to escape the uploads folder. */

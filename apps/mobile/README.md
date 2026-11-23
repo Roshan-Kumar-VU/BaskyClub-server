@@ -4,7 +4,7 @@ Expo SDK 58 · React Native · TypeScript · Expo Router. Data comes from the sh
 
 ## Run on your Mac
 
-1. Start the API first (another Terminal tab): `pnpm web dev` (from the repo root)
+1. Start the API first (another Terminal tab): `pnpm api dev` (from the repo root)
 2. Tell the app where the API is: `cp .env.example .env.local` (edit the address for a real phone — see the file)
 3. Start the app:
 

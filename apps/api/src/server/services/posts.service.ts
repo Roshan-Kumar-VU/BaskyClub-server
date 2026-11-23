@@ -107,7 +107,7 @@ const postCardSelect = {
 type PostRow = Prisma.PostGetPayload<{ select: typeof postCardSelect }>;
 
 export function shareUrl(postId: string) {
-  return `${env.appUrl}/p/${postId}`;
+  return `${env.webUrl}/p/${postId}`;
 }
 
 async function toCards(viewer: Viewer | null, rows: PostRow[]) {

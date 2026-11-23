@@ -1,30 +1,30 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { youtubeThumbnail } from "@baskyclub/shared";
+import { youtubeThumbnail, type PostCard } from "@baskyclub/shared";
 import { cache } from "react";
-import { AppError } from "@/server/errors";
-import { uuid } from "@/server/http";
-import { getPost } from "@/server/services/posts.service";
+import { apiUrl } from "../../_lib/config";
 
-// Share link for a post: posts.service.ts → shareUrl() = APP_URL/p/:id.
+// Share link for a post: the API's shareUrl() = WEB_URL/p/:id.
 // Rendered on the server so WhatsApp / social apps get a title, text and photo preview.
-// Seen as a visitor (no login): the same visibility rules as GET /api/posts/:id apply,
-// so members-only, in-review and deleted posts are "not found".
+// Read from GET /api/posts/:id as a visitor (no login), so the API's visibility rules apply:
+// members-only, in-review, deleted and suspended-author posts are "not found".
 
 type Props = { params: Promise<{ id: string }> };
 
-/** One database read per request, shared by generateMetadata and the page. */
-const loadPost = cache(async (id: string) => {
-  if (!uuid.safeParse(id).success) return null;
-  try {
-    return await getPost(null, id);
-  } catch (err) {
-    if (err instanceof AppError && err.status === 404) return null;
-    throw err;
-  }
+/** One API call per request, shared by generateMetadata and the page. */
+const loadPost = cache(async (id: string): Promise<PostCard | null> => {
+  const res = await fetch(`${apiUrl}/api/posts/${encodeURIComponent(id)}`, {
+    cache: "no-store",
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(10_000),
+  });
+  // 404: hidden or missing · 400: not a valid post id
+  if (res.status === 404 || res.status === 400) return null;
+  if (!res.ok) throw new Error(`API answered ${res.status} for post ${id}`);
+  return (await res.json()) as PostCard;
 });
 
-type Post = NonNullable<Awaited<ReturnType<typeof loadPost>>>;
+type Post = PostCard;
 
 /** Who the post is from: the association or club it was posted for, else the person. */
 function postedBy(post: Post) {
@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url: `/p/${post.id}`,
       siteName: "BaskyCLub",
-      publishedTime: post.createdAt.toISOString(),
+      publishedTime: post.createdAt,
       ...(image ? { images: [{ url: image }] } : {}),
     },
     twitter: { card: image ? "summary_large_image" : "summary", title, description },
@@ -92,7 +92,7 @@ export default async function SharedPostPage({ params }: Props) {
           <div className="post-author">{post.author.name}</div>
           <div className="muted" style={{ fontSize: 13 }}>
             {from ? `${from} · ` : ""}
-            <time dateTime={post.createdAt.toISOString()}>{dateFormat.format(post.createdAt)}</time>
+            <time dateTime={post.createdAt}>{dateFormat.format(new Date(post.createdAt))}</time>
             {post.edited ? " · edited" : ""}
           </div>
         </div>

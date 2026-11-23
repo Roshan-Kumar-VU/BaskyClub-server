@@ -14,7 +14,7 @@ export const mediaUrl = z
   .refine((s) => {
     try {
       const u = new URL(s);
-      return u.protocol === "https:" || s.startsWith(`${env.appUrl}${FILES_PATH}`);
+      return u.protocol === "https:" || s.startsWith(`${env.apiUrl}${FILES_PATH}`);
     } catch {
       return false;
     }
