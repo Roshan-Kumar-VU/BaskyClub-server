@@ -1,4 +1,5 @@
 // Clubs: list, page, register, edit, BaskyCLub review (approve / suspend).
+import { LIMITS, type ClubCardData, type ClubKind, type ClubStatus } from "@baskyclub/shared";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../db";
@@ -15,7 +16,7 @@ export const POSITIONS = ["PG", "SG", "SF", "PF", "C"] as const;
 const coordinate = z.coerce.number().refine(Number.isFinite);
 
 const clubFields = {
-  name: z.string().trim().min(2).max(80),
+  name: z.string().trim().min(LIMITS.clubName.min).max(LIMITS.clubName.max),
   kind: z.enum(CLUB_KINDS).default("club"),
   districtCode: z.string().trim().toUpperCase(),
   description: z.string().trim().max(2000).optional(),
@@ -91,13 +92,14 @@ const clubCardSelect = {
 
 type ClubCardRow = Prisma.ClubGetPayload<{ select: typeof clubCardSelect }>;
 
-function toClubCard(c: ClubCardRow) {
+/** Shape shared with the apps (packages/shared wire.ts); text columns narrowed to their unions here. */
+function toClubCard(c: ClubCardRow): ClubCardData {
   const affiliation = c.affiliations[0];
   return {
     id: c.id,
     name: c.name,
-    kind: c.kind,
-    status: c.status,
+    kind: c.kind as ClubKind,
+    status: c.status as ClubStatus,
     districtCode: c.districtCode,
     districtName: c.district.name,
     stateCode: c.district.stateCode,

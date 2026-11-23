@@ -20,7 +20,7 @@ import { requireActive, type Viewer } from "../auth/viewer";
 import { decodeCursor, encodeCursor, olderThan } from "../lib/cursor";
 import { limitRate } from "../lib/rate-limit";
 import { mediaUrl } from "../lib/media";
-import { normalizeYouTubeUrl } from "../lib/youtube";
+import { LIMITS, normalizeYouTubeUrl, type MediaType, type ModerationStatus, type PostCardData, type Visibility } from "@baskyclub/shared";
 import { activeClubIds, getClubPowers, getOrgPowers, isBaskyTeam, isModerator } from "../permissions";
 
 export const VISIBILITIES = ["public", "club_page", "members"] as const;
@@ -29,7 +29,7 @@ const POSTS_PER_HOUR = 10;
 
 export const createPostInput = z
   .object({
-    content: z.string().trim().max(5000).optional(),
+    content: z.string().trim().max(LIMITS.postContent.max).optional(),
     clubId: uuid.optional(),
     /** Official post for an association (its members and the Basky team only). */
     organizationId: uuid.optional(),
@@ -46,7 +46,7 @@ export const createPostInput = z
     path: ["content"],
   });
 
-export const updatePostInput = z.object({ content: z.string().trim().min(1).max(5000) });
+export const updatePostInput = z.object({ content: z.string().trim().min(LIMITS.postContent.min).max(LIMITS.postContent.max) });
 
 export const feedQuery = z.object({
   scope: z.enum(["all", "district", "following"]).default("all"),
@@ -128,19 +128,21 @@ async function toCards(viewer: Viewer | null, rows: PostRow[]) {
   const creatorSet = new Set(creators.map((c) => c.userId));
   const mod = isModerator(viewer);
 
-  return rows.map((r) => ({
+  // Shape shared with the apps (packages/shared wire.ts). Text columns hold only the values
+  // the API writes, so they are narrowed to their unions here, once.
+  return rows.map((r): PostCardData => ({
     id: r.id,
     content: r.content,
-    visibility: r.visibility,
-    moderationStatus: r.moderationStatus,
+    visibility: r.visibility as Visibility,
+    moderationStatus: r.moderationStatus as ModerationStatus,
     createdAt: r.createdAt,
     edited: r.updatedAt.getTime() - r.createdAt.getTime() > 1000,
     districtCode: r.districtCode,
     isPinned: r.isPinned,
-    author: { ...r.author, isCreator: creatorSet.has(r.authorId) },
+    author: { id: r.author.id, name: r.author.name, photoUrl: r.author.photoUrl, isCreator: creatorSet.has(r.authorId) },
     club: r.club,
     organization: r.organization,
-    media: r.media,
+    media: r.media.map((m) => ({ ...m, mediaType: m.mediaType as MediaType })),
     likeCount: r.likeCount,
     commentCount: r.commentCount,
     shareCount: r.shareCount,

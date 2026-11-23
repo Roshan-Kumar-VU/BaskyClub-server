@@ -20,30 +20,19 @@ import type {
   Visibility,
 } from '@/types/models';
 
+import { youtubeThumbnail, type ClubCard, type ClubMember, type Comment, type Person, type PostCard } from '@baskyclub/shared';
+
 import { ApiError, del, get, patch, post, uploadPhoto } from './api';
 import { invalidate, isLoaded, load, peek, put, read, update } from './cache';
 import { bump } from './store';
 
 export type Scope = { scope: 'india' | 'district'; districtCode: string | null };
 
-// ── Shapes coming from the API ────────────────────────────────────────────
-type ApiPerson = { id: string; name: string; photoUrl?: string | null };
-type ApiClubCard = {
-  id: string; name: string; kind: Club['kind']; status: Club['status']; districtCode: string; districtName?: string; stateCode?: string;
-  logoUrl?: string | null; latitude?: number | null; longitude?: number | null; isVerified: boolean; memberCount: number;
-  affiliatedTo: { id: string; name: string; shortName?: string | null; validUntil?: string | null; tnbaNumber?: string | null } | null;
-};
-type ApiPost = {
-  id: string; content: string | null; visibility: Visibility; moderationStatus: Post['moderationStatus']; createdAt: string; districtCode: string | null;
-  isPinned: boolean; author: ApiPerson & { isCreator: boolean }; club: { id: string; name: string; logoUrl?: string | null } | null;
-  organization: { id: string; name: string; shortName?: string | null; logoUrl?: string | null } | null;
-  media: { mediaType: 'image' | 'youtube'; url: string; width?: number | null; height?: number | null }[];
-  likeCount: number; commentCount: number; likedByMe: boolean; shareUrl: string | null;
-};
+// Shapes coming from the API: packages/shared (the server is type-checked against the same types).
 
 const opt = <T,>(v: T | null | undefined) => (v === null ? undefined : v);
 
-function toUser(p: ApiPerson & Partial<{ bio: string | null; coverPhotoUrl: string | null; instagram: string | null; youtube: string | null }>): User {
+function toUser(p: Person & Partial<{ bio: string | null; coverPhotoUrl: string | null; instagram: string | null; youtube: string | null }>): User {
   return {
     userId: p.id,
     name: p.name,
@@ -163,14 +152,6 @@ export function getUser(id?: string | null): User | undefined {
   return peek<ProfileData>(`profile:${id}`)?.user;
 }
 
-export function ageOf(dob: string): number {
-  const d = new Date(dob);
-  const n = new Date();
-  let a = n.getFullYear() - d.getFullYear();
-  if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
-  return a;
-}
-export const isMinor = (u?: User) => !!u?.dateOfBirth && ageOf(u.dateOfBirth) < 18;
 export const isPlatformStaff = (_userId?: string | null) => (getMe()?.platformRoles.length ?? 0) > 0;
 export const isCreator = (userId?: string) => !!userId && !!peek<ProfileData>(`profile:${userId}`)?.creator;
 
@@ -196,7 +177,7 @@ export interface PostView extends Post {
 
 const postsById = new Map<string, PostView>();
 
-function toPostView(p: ApiPost): PostView {
+function toPostView(p: PostCard): PostView {
   const images = p.media.filter((m) => m.mediaType === 'image');
   const media: PostMedia[] = p.media.map((m, i) => ({
     id: `${p.id}-m${i}`,
@@ -229,7 +210,7 @@ function toPostView(p: ApiPost): PostView {
   };
 }
 
-function keep(cards: ApiPost[]): string[] {
+function keep(cards: PostCard[]): string[] {
   return cards.map((c) => {
     const v = toPostView(c);
     postsById.set(v.postId, v);
@@ -243,7 +224,7 @@ export function getFeed(s: Scope): PostView[] {
   const district = s.scope === 'district' && s.districtCode ? s.districtCode : null;
   const key = district ? `feed:district:${district}` : 'feed:all';
   const ids = read(key, async () => {
-    const r = await get<{ pinned: ApiPost[]; posts: ApiPost[] }>(district ? `/api/feed?scope=district&districtCode=${district}&limit=30` : '/api/feed?limit=30');
+    const r = await get<{ pinned: PostCard[]; posts: PostCard[] }>(district ? `/api/feed?scope=district&districtCode=${district}&limit=30` : '/api/feed?limit=30');
     const pinned = keep(r.pinned ?? []);
     return [...pinned, ...keep(r.posts).filter((id) => !pinned.includes(id))];
   }, [] as string[]);
@@ -256,7 +237,7 @@ export const refreshFeed = (s: Scope) => {
 };
 
 export function getPost(id: string): PostView | undefined {
-  read(`post:${id}`, async () => keep([await get<ApiPost>(`/api/posts/${id}`)])[0], undefined as string | undefined);
+  read(`post:${id}`, async () => keep([await get<PostCard>(`/api/posts/${id}`)])[0], undefined as string | undefined);
   return postsById.get(id);
 }
 export const isPostLoaded = (id: string) => postsById.has(id) || isLoaded(`post:${id}`);
@@ -299,9 +280,8 @@ export interface CommentView extends PostComment {
   replies: (PostComment & { user?: User })[];
 }
 
-type ApiComment = { id: string; parentId: string | null; createdAt: string; isRemoved: boolean; content: string | null; user: ApiPerson | null; replyCount?: number };
 
-function toComment(postId: string, c: ApiComment): PostComment & { user?: User } {
+function toComment(postId: string, c: Comment): PostComment & { user?: User } {
   return {
     id: c.id,
     postId,
@@ -317,10 +297,10 @@ function toComment(postId: string, c: ApiComment): PostComment & { user?: User }
 /** Top-level comments with one level of replies. */
 export function getComments(postId: string): CommentView[] {
   return read(`comments:${postId}`, async () => {
-    const r = await get<{ comments: ApiComment[] }>(`/api/posts/${postId}/comments?limit=50`);
+    const r = await get<{ comments: Comment[] }>(`/api/posts/${postId}/comments?limit=50`);
     return Promise.all(
       r.comments.map(async (c) => {
-        const replies = c.replyCount ? (await get<{ replies: ApiComment[] }>(`/api/comments/${c.id}/replies?limit=50`)).replies : [];
+        const replies = c.replyCount ? (await get<{ replies: Comment[] }>(`/api/comments/${c.id}/replies?limit=50`)).replies : [];
         return { ...toComment(postId, c), replies: replies.map((x) => toComment(postId, x)) } as CommentView;
       }),
     );
@@ -329,7 +309,7 @@ export function getComments(postId: string): CommentView[] {
 
 async function refreshPost(postId: string) {
   try {
-    keep([await get<ApiPost>(`/api/posts/${postId}`)]);
+    keep([await get<PostCard>(`/api/posts/${postId}`)]);
     bump();
   } catch {
     // ignore
@@ -359,7 +339,7 @@ export async function createPost(input: { userId: string; clubId?: string; conte
     const url = /^https?:\/\//.test(im.uri) ? im.uri : await uploadPhoto(im.uri);
     images.push({ url, width: Math.round(1000 * im.ratio), height: 1000 });
   }
-  const created = await post<ApiPost>('/api/posts', {
+  const created = await post<PostCard>('/api/posts', {
     content: input.content || undefined,
     clubId: input.clubId,
     visibility: input.clubId ? input.visibility : 'public',
@@ -418,16 +398,13 @@ export const canSeeOrg = (o: Organization | undefined, _viewerId?: string | null
 
 export const getAssociationForDistrict = (code?: string | null) => getOrganization(getDistrict(code)?.associationId);
 
-const youtubeThumb = (url: string) => {
-  const m = url.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/);
-  return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : undefined;
-};
+const youtubeThumb = (url: string) => youtubeThumbnail(url) ?? undefined;
 
 export function getAssociationDetail(id: string, _viewerId?: string | null) {
   const d = read<any>(`org:detail:${id}`, () => get(`/api/associations/${id}`), undefined);
   const bearers = read<any[]>(`org:bearers:${id}`, async () => (await get(`/api/associations/${id}/office-bearers?past=1`)).officeBearers, []);
   const legacy = read<any[]>(`org:legacy:${id}`, async () => (await get(`/api/associations/${id}/legacy`)).records, []);
-  const postIds = read(`org:posts:${id}`, async () => keep((await get<{ posts: ApiPost[] }>(`/api/associations/${id}/posts`)).posts), [] as string[]);
+  const postIds = read(`org:posts:${id}`, async () => keep((await get<{ posts: PostCard[] }>(`/api/associations/${id}/posts`)).posts), [] as string[]);
   if (!d) return undefined;
   const toBearer = (b: any) => ({ id: b.id, orgId: id, name: b.name, userId: opt(b.userId), title: b.designation, startDate: b.termFrom, endDate: opt(b.termTo) });
   return {
@@ -461,7 +438,7 @@ export interface ClubSummary extends Club {
   association?: Organization;
 }
 
-function toClubSummary(c: ApiClubCard & Partial<{ description: string | null; motto: string | null; bannerUrl: string | null; createdAt: string }>): ClubSummary {
+function toClubSummary(c: ClubCard & Partial<{ description: string | null; motto: string | null; bannerUrl: string | null; createdAt: string }>): ClubSummary {
   return {
     clubId: c.id,
     name: c.name,
@@ -489,7 +466,7 @@ export function getClubs(s: Scope, filter: ClubFilter, query = ''): ClubSummary[
   const district = s.scope === 'district' && s.districtCode ? s.districtCode : '';
   const q = query.trim();
   const params = new URLSearchParams({ limit: '50', ...(district ? { districtCode: district } : {}), ...(q ? { q } : {}), ...(filter === 'academy' ? { kind: 'academy' } : {}) });
-  const list = read(`clubs:${params}`, async () => (await get<{ clubs: ApiClubCard[] }>(`/api/clubs?${params}`)).clubs.map(toClubSummary), [] as ClubSummary[]);
+  const list = read(`clubs:${params}`, async () => (await get<{ clubs: ClubCard[] }>(`/api/clubs?${params}`)).clubs.map(toClubSummary), [] as ClubSummary[]);
   return list.filter((c) => {
     if (filter === 'affiliated') return c.kind === 'club' && c.affiliated;
     if (filter === 'community') return c.kind === 'club' && !c.affiliated;
@@ -497,21 +474,20 @@ export function getClubs(s: Scope, filter: ClubFilter, query = ''): ClubSummary[
   });
 }
 
-type ClubPage = ApiClubCard & {
+type ClubPage = ClubCard & {
   description: string | null; motto: string | null; bannerUrl: string | null; createdAt: string; followerCount: number;
   staff: { roleId: string; role: 'owner' | 'admin' | 'captain'; id: string; name: string; photoUrl: string | null }[];
   coaches: { id: string; name: string; role: 'head' | 'assistant'; userId: string | null }[];
   viewer: { isFollowing: boolean; membership: { id: string; status: 'pending' | 'active'; isPlayer: boolean; primaryPosition: Position | null } | null; isOwner: boolean; isAdmin: boolean; canManage: boolean };
 };
-type ApiMember = { id: string; isPlayer: boolean; isCoach: boolean; primaryPosition: Position | null; joinedAt: string | null; user: ApiPerson; roles: string[] };
 
 const clubPage = (clubId: string) => read<ClubPage | undefined>(`club:detail:${clubId}`, () => get(`/api/clubs/${clubId}`), undefined);
 /** Raw club page from the API (staff with role ids, viewer powers) — for manage screens. */
 export const getClubRaw = clubPage;
-export type { ClubPage, ApiMember };
+export type { ClubPage };
 /** Raw member rows (membership ids, roles) — for manage screens. */
 export const getClubMembersRaw = (clubId: string) =>
-  read(`club:members:${clubId}`, async () => (await get<{ members: ApiMember[] }>(`/api/clubs/${clubId}/members?limit=50`)).members, [] as ApiMember[]);
+  read(`club:members:${clubId}`, async () => (await get<{ members: ClubMember[] }>(`/api/clubs/${clubId}/members?limit=50`)).members, [] as ClubMember[]);
 /** Raw association page (viewer powers, covered districts). */
 export const getOrgRaw = (id: string) => read<any>(`org:detail:${id}`, () => get(`/api/associations/${id}`), undefined);
 
@@ -538,12 +514,12 @@ export function getMyClubs(userId?: string | null): (ClubSummary & { membership:
 
 export function getClubDetail(clubId: string, _viewerId?: string | null) {
   const c = clubPage(clubId);
-  const members = read(`club:members:${clubId}`, async () => (await get<{ members: ApiMember[] }>(`/api/clubs/${clubId}/members?limit=50`)).members, [] as ApiMember[]);
-  const postIds = read(`club:posts:${clubId}`, async () => keep((await get<{ posts: ApiPost[] }>(`/api/clubs/${clubId}/posts?limit=30`)).posts), [] as string[]);
+  const members = read(`club:members:${clubId}`, async () => (await get<{ members: ClubMember[] }>(`/api/clubs/${clubId}/members?limit=50`)).members, [] as ClubMember[]);
+  const postIds = read(`club:posts:${clubId}`, async () => keep((await get<{ posts: PostCard[] }>(`/api/clubs/${clubId}/posts?limit=30`)).posts), [] as string[]);
   if (!c) return undefined;
   const club = toClubSummary(c);
   const staff = (role: string) => c.staff.filter((s) => s.role === role).map((s) => toUser(s));
-  const row = (m: ApiMember) => ({ user: toUser(m.user), membership: membershipFrom(clubId, m.user.id, { ...m, status: 'active' }), roles: m.roles as ('owner' | 'admin' | 'captain')[] });
+  const row = (m: ClubMember) => ({ user: toUser(m.user), membership: membershipFrom(clubId, m.user.id, { ...m, status: 'active' }), roles: m.roles as ('owner' | 'admin' | 'captain')[] });
   return {
     club,
     affiliation: c.affiliatedTo
@@ -583,7 +559,7 @@ export async function cancelJoinRequest(clubId: string, _userId: string) {
 
 export function getJoinRequests(clubId: string) {
   if (!canManageClub(clubId, viewer)) return [];
-  return read(`club:requests:${clubId}`, async () => (await get<{ requests: { id: string; requestedAt: string; isPlayer: boolean; primaryPosition: Position | null; user: ApiPerson }[] }>(`/api/clubs/${clubId}/requests`)).requests, []).map((r) => ({
+  return read(`club:requests:${clubId}`, async () => (await get<{ requests: { id: string; requestedAt: string; isPlayer: boolean; primaryPosition: Position | null; user: Person }[] }>(`/api/clubs/${clubId}/requests`)).requests, []).map((r) => ({
     ...membershipFrom(clubId, r.user.id, { ...r, status: 'pending' }),
     requestedAt: r.requestedAt,
     user: toUser(r.user),
@@ -641,7 +617,7 @@ type ProfileData = {
 
 export function getProfile(userId: string): ProfileData | undefined {
   const p = read<any>(`profile:${userId}`, () => get(`/api/users/${userId}`), undefined);
-  const postIds = read(`userposts:${userId}`, async () => keep((await get<{ posts: ApiPost[] }>(`/api/users/${userId}/posts?limit=30`)).posts), [] as string[]);
+  const postIds = read(`userposts:${userId}`, async () => keep((await get<{ posts: PostCard[] }>(`/api/users/${userId}/posts?limit=30`)).posts), [] as string[]);
   if (!p) return undefined;
   const pinnedId: string | undefined = p.pinnedPost?.id;
   if (p.pinnedPost) keep([p.pinnedPost]);

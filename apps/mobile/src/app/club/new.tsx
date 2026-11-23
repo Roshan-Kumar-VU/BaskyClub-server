@@ -1,5 +1,6 @@
 'use no memo';
 
+import { fits, LIMITS } from '@baskyclub/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
 
@@ -45,7 +46,7 @@ export default function NewClub() {
 
   return (
     <Page>
-      <Field label="Club name" value={name} onChangeText={setName} placeholder="e.g. Gudiyatham Giants" />
+      <Field label="Club name" value={name} onChangeText={setName} placeholder="e.g. Gudiyatham Giants" maxLength={LIMITS.clubName.max} />
       <Choice label="Type" value={kind} onChange={setKind} options={[{ value: 'club', label: 'Club' }, { value: 'academy', label: 'Academy' }]} />
       <DistrictSelect label="District" value={district} onChange={setDistrict} />
       <Field label="Motto (optional)" value={motto} onChangeText={setMotto} placeholder="Defend the fort" />
@@ -53,7 +54,7 @@ export default function NewClub() {
       <Toggle label="I play for this club" value={iPlay} onChange={setIPlay} />
       {iPlay && <Choice label="Your position" value={position} onChange={setPosition} options={positions.map((p) => ({ ...p }))} />}
       <Text variant="caption" color="textMuted">New clubs are checked by the BaskyCLub team before they appear in search.</Text>
-      <Button label="Register club" loading={busy} disabled={name.trim().length < 2 || !district} onPress={submit} />
+      <Button label="Register club" loading={busy} disabled={!fits(name, LIMITS.clubName) || !district} onPress={submit} />
     </Page>
   );
 }

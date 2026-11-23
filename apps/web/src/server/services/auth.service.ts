@@ -1,4 +1,5 @@
 // Sign up, log in, "who am I", parent consent, change password.
+import { LIMITS } from "@baskyclub/shared";
 import { z } from "zod";
 import { creatorStatus } from "./badges.service";
 import { prisma } from "../db";
@@ -18,8 +19,8 @@ const PARENT_LINK_DAYS = 7;
 
 const password = z
   .string()
-  .min(8, "Password must be at least 8 characters.")
-  .max(72, "Password must be at most 72 characters.");
+  .min(LIMITS.password.min, `Password must be at least ${LIMITS.password.min} characters.`)
+  .max(LIMITS.password.max, `Password must be at most ${LIMITS.password.max} characters.`);
 
 const dateOnly = z
   .string()
@@ -28,7 +29,7 @@ const dateOnly = z
   .refine((d) => !Number.isNaN(d.getTime()), "Not a real date.");
 
 export const signupInput = z.object({
-  name: z.string().trim().min(2, "Enter your full name.").max(80),
+  name: z.string().trim().min(LIMITS.personName.min, "Enter your full name.").max(LIMITS.personName.max),
   email: z.email("Enter a valid email.").transform((s) => s.trim().toLowerCase()),
   phone: z.string().transform((s, ctx) => {
     const p = normalizeIndianPhone(s);

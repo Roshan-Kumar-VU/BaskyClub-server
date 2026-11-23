@@ -1,7 +1,6 @@
 /**
- * Tiny change signal for the in-memory mock data. Mutations call `bump()`,
- * screens call `useStoreVersion()` to re-render. When the API arrives this is
- * replaced by a query cache (e.g. TanStack Query).
+ * Tiny change signal for the repository's cached API data (src/data/cache.ts, repo.ts).
+ * Mutations call `bump()`, screens call `useStoreVersion()` to re-render.
  */
 import { useSyncExternalStore } from 'react';
 

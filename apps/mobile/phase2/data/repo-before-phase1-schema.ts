@@ -2,7 +2,7 @@
  * Repository: the only place screens read or change data.
  * Today: synchronous reads over mock arrays. Later: API calls with the same shapes.
  */
-import * as db from '@/data/mock';
+import * as db from './mock';
 import type {
   Club,
   ClubCategory,

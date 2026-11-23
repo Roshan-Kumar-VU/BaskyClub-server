@@ -8,7 +8,9 @@ import { Button } from '@/components/button';
 import { EmptyState } from '@/components/empty-state';
 import { Card, Choice, Page, Toggle } from '@/components/form';
 import { Text } from '@/components/text';
-import { type ApiMember, getClubMembersRaw, getClubRaw } from '@/data/repo';
+import type { ClubMember } from '@baskyclub/shared';
+
+import { getClubMembersRaw, getClubRaw } from '@/data/repo';
 import { endClubRole, grantClubRole, removeMember, setMemberDetails } from '@/data/manage';
 import { useStoreVersion } from '@/data/store';
 import { confirm, notify } from '@/lib/notify';
@@ -33,7 +35,7 @@ export default function ClubMembers() {
   const roleRow = (userId: string, role: string) => club.staff.find((s) => s.id === userId && s.role === role);
   const run = (p: Promise<unknown>) => p.catch((e) => notify("Couldn't save", errorMessage(e)));
 
-  const member = (m: ApiMember) => {
+  const member = (m: ClubMember) => {
     const isAdmin = m.roles.includes('admin');
     const isCaptain = m.roles.includes('captain');
     const isOwnerRow = m.roles.includes('owner');

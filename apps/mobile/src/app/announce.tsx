@@ -1,5 +1,6 @@
 'use no memo';
 
+import { fits, LIMITS } from '@baskyclub/shared';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
@@ -55,11 +56,11 @@ export default function Announce() {
       <Text variant="heading">Alert from {from}</Text>
       <Choice label="Send to" value={audience} onChange={setAudience} options={options.map((o) => ({ value: o, label: audienceLabel[o] }))} />
       {audience === 'district_users' && <DistrictSelect label="District" value={district} onChange={setDistrict} only={covered} />}
-      <Field label="Title" value={title} onChangeText={setTitle} placeholder="District league registrations open" maxLength={120} />
-      <Area label="Message" value={body} onChangeText={setBody} placeholder="Details, dates, who to contact" />
+      <Field label="Title" value={title} onChangeText={setTitle} placeholder="District league registrations open" maxLength={LIMITS.announcementTitle.max} />
+      <Area label="Message" value={body} onChangeText={setBody} placeholder="Details, dates, who to contact" max={LIMITS.announcementBody.max} />
       <Toggle label="Also show in the feed" sub={audience === 'club_members' ? 'As a members-only pinned card' : 'As a pinned Official card'} value={inFeed} onChange={setInFeed} />
       <Text variant="caption" color="textMuted">Alerts can't be liked or commented on. Up to 10 a day.</Text>
-      <Button label="Send alert" loading={busy} disabled={title.trim().length < 3 || body.trim().length < 3 || (audience === 'district_users' && !district)} onPress={send} />
+      <Button label="Send alert" loading={busy} disabled={!fits(title, LIMITS.announcementTitle) || !fits(body, LIMITS.announcementBody) || (audience === 'district_users' && !district)} onPress={send} />
     </Page>
   );
 }

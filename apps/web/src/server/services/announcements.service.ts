@@ -8,6 +8,7 @@
 // The inbox is worked out when it is opened (no per-person copies are stored), so someone who
 // joins a club later also sees that club's recent member announcements.
 import type { Prisma } from "@prisma/client";
+import { LIMITS } from "@baskyclub/shared";
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, forbidden, notFound } from "../errors";
@@ -33,8 +34,8 @@ export const sendAnnouncementInput = z.object({
   senderClubId: uuid.optional(),
   audience: z.enum(AUDIENCES),
   districtCode: z.string().trim().toUpperCase().optional(),
-  title: z.string().trim().min(3).max(120),
-  body: z.string().trim().min(3).max(2000),
+  title: z.string().trim().min(LIMITS.announcementTitle.min).max(LIMITS.announcementTitle.max),
+  body: z.string().trim().min(LIMITS.announcementBody.min).max(LIMITS.announcementBody.max),
   showInFeed: z.boolean().default(false),
 });
 export const inboxQuery = z.object({

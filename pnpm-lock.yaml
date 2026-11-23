@@ -14,6 +14,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@baskyclub/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@expo-google-fonts/manrope':
         specifier: ^0.4.2
         version: 0.4.3
@@ -126,6 +129,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@baskyclub/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@prisma/client':
         specifier: 5.22.0
         version: 5.22.0(prisma@5.22.0)
@@ -157,6 +163,18 @@ importers:
       prisma:
         specifier: 5.22.0
         version: 5.22.0
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/shared:
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
       tsx:
         specifier: 4.23.15
         version: 4.23.15

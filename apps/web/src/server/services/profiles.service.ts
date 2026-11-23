@@ -1,6 +1,7 @@
 // Profile page (#72) and "edit profile" in settings.
 // Shown: photo, name, cover, bio, Instagram/YouTube (hidden for under-18), one pinned post,
 // clubs with position, posts. Never shown: email, phone, date of birth.
+import { LIMITS } from "@baskyclub/shared";
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, notFound } from "../errors";
@@ -20,7 +21,7 @@ const handle = z
 
 export const updateProfileInput = z
   .object({
-    name: z.string().trim().min(2).max(80),
+    name: z.string().trim().min(LIMITS.personName.min).max(LIMITS.personName.max),
     bio: z.string().trim().max(300).nullable(),
     photoUrl: mediaUrl.nullable(),
     coverPhotoUrl: mediaUrl.nullable(),

@@ -1,11 +1,10 @@
 "use client";
 
+import { LIMITS } from "@baskyclub/shared";
 import { useState, type FormEvent } from "react";
 import { ApiFailure, postJson } from "../_lib/post-json";
 
-// Same limits as the server's password rule (auth.service.ts).
-const MIN = 8;
-const MAX = 72;
+const { min: MIN, max: MAX } = LIMITS.password;
 
 type State = { kind: "idle" } | { kind: "busy" } | { kind: "done" } | { kind: "error"; message: string; expired?: boolean };
 

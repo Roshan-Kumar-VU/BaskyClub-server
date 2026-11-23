@@ -7,7 +7,7 @@ import { Button } from '@/components/button';
 import { Field } from '@/components/field';
 import { Area, back, Page } from '@/components/form';
 import { Text } from '@/components/text';
-import { youtubeId } from '@/components/youtube-card';
+import { youtubeId } from '@baskyclub/shared';
 import { getOrgRaw } from '@/data/repo';
 import { officialPost } from '@/data/manage';
 import { notify } from '@/lib/notify';

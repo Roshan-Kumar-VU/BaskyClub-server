@@ -26,10 +26,10 @@ In development the login screen lists every test account (password `Basky@123`) 
 | `src/app/` | Screens (every file is a route). `(tabs)/` = bottom tabs |
 | `src/components/` | Reusable UI (post card, match card, buttons…) |
 | `src/theme/` | Colours, fonts, spacing — ported from the website |
-| `src/types/models.ts` | Types matching the Database Guide |
+| `src/types/models.ts` | Screen-side models (what screens read; `src/data/repo.ts` maps API replies into them) |
+| `@baskyclub/shared` (`packages/shared`) | API reply types, input limits (`LIMITS`), YouTube and age helpers — the same code the server uses |
 | `src/data/repo.ts` | The only place screens get data — calls the API and caches answers |
 | `src/data/api.ts`, `cache.ts` | API address + login token; small read-through cache |
-| `src/data/mock/` | Old sample data (no longer used by screens) |
 
 ## Checks
 

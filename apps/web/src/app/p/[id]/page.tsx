@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { youtubeThumbnail } from "@baskyclub/shared";
 import { cache } from "react";
 import { AppError } from "@/server/errors";
 import { uuid } from "@/server/http";
@@ -35,16 +36,6 @@ function summary(text: string | null, max = 160) {
   return clean.length > max ? `${clean.slice(0, max - 1).trimEnd()}…` : clean;
 }
 
-function youtubeThumb(url: string) {
-  // Stored links are normalised to https://www.youtube.com/watch?v=ID (lib/youtube.ts)
-  try {
-    const id = new URL(url).searchParams.get("v");
-    return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = await loadPost((await params).id);
   if (!post) return { title: "Post not found", robots: { index: false, follow: false } };
@@ -53,7 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = summary(post.content) || "A post on BaskyCLub, the basketball community.";
   const photo = post.media.find((m) => m.mediaType === "image")?.url;
   const video = post.media.find((m) => m.mediaType === "youtube")?.url;
-  const image = photo ?? (video ? youtubeThumb(video) : null);
+  const image = photo ?? (video ? youtubeThumbnail(video) : null);
   return {
     title: { absolute: title }, // already ends in "BaskyCLub"; skip the layout's " · BaskyCLub"
     description,
@@ -78,7 +69,7 @@ export default async function SharedPostPage({ params }: Props) {
   if (!post) notFound();
 
   const from = post.organization?.shortName || post.organization?.name || post.club?.name;
-  const thumbs = post.media.map((m) => (m.mediaType === "youtube" ? youtubeThumb(m.url) : null));
+  const thumbs = post.media.map((m) => (m.mediaType === "youtube" ? youtubeThumbnail(m.url) : null));
   const initials = post.author.name
     .split(/\s+/)
     .map((w) => w[0])

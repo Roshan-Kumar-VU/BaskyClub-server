@@ -1,5 +1,6 @@
 'use no memo';
 
+import { fits, LIMITS } from '@baskyclub/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Platform, ScrollView, View } from 'react-native';
@@ -61,7 +62,7 @@ export default function MapScreen() {
         ) : (
           <Card title="Suggest a court">
             <View style={{ padding: space.lg, gap: space.md }}>
-              <Field label="Court name" value={court.name} onChangeText={(v) => setCourt((x) => ({ ...x, name: v }))} />
+              <Field label="Court name" value={court.name} onChangeText={(v) => setCourt((x) => ({ ...x, name: v }))} maxLength={LIMITS.courtName.max} />
               <Field label="Address" value={court.address} onChangeText={(v) => setCourt((x) => ({ ...x, address: v }))} />
               <View style={{ flexDirection: 'row', gap: space.sm }}>
                 <View style={{ flex: 1 }}><Field label="Latitude" value={court.lat} onChangeText={(v) => setCourt((x) => ({ ...x, lat: v }))} keyboardType="decimal-pad" placeholder="12.9165" /></View>
@@ -69,7 +70,7 @@ export default function MapScreen() {
               </View>
               <Toggle label="Indoor court" value={court.indoor} onChange={(v) => setCourt((x) => ({ ...x, indoor: v }))} />
               <Text variant="caption" color="textMuted">Tip: long-press the spot in Google Maps to copy its latitude and longitude.</Text>
-              <Button label="Send for review" disabled={!user || court.name.trim().length < 2 || !court.lat || !court.lng} onPress={submit} />
+              <Button label="Send for review" disabled={!user || !fits(court.name, LIMITS.courtName) || !court.lat || !court.lng} onPress={submit} />
             </View>
           </Card>
         )}

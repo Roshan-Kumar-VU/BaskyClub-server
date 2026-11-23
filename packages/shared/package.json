@@ -1,0 +1,20 @@
+{
+  "name": "@baskyclub/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared by apps/web (API) and apps/mobile: API response types, input limits, small pure helpers. No runtime dependencies.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}

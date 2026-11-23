@@ -1,5 +1,6 @@
 'use no memo';
 
+import { fits, LIMITS } from '@baskyclub/shared';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
@@ -72,14 +73,14 @@ export default function Legacy() {
       <Card title="Add a record">
         <View style={{ padding: space.lg, gap: space.md }}>
           <Choice value={type} onChange={setType} options={[{ value: 'tournament_record', label: 'Tournament' }, { value: 'history', label: 'History' }, { value: 'achievement', label: 'Achievement' }]} />
-          <Field label="Title" value={title} onChangeText={setTitle} placeholder="District Championship — men" />
+          <Field label="Title" value={title} onChangeText={setTitle} placeholder="District Championship — men" maxLength={LIMITS.legacyTitle.max} />
           <Field label="Year" value={yr} onChangeText={setYr} keyboardType="number-pad" />
           {type === 'tournament_record' && <Field label="Winner" value={winner} onChangeText={setWinner} />}
           {type === 'tournament_record' && <Field label="Runner-up" value={runner} onChangeText={setRunner} />}
           <Area label="Story (optional)" value={body} onChangeText={setBody} />
           <Field label="Photo link (optional)" value={photo} onChangeText={setPhoto} placeholder="https://" autoCapitalize="none" />
           <Field label="YouTube link (optional)" value={video} onChangeText={setVideo} placeholder="https://youtu.be/…" autoCapitalize="none" />
-          <Button label="Add record" loading={busy} disabled={title.trim().length < 2} onPress={add} />
+          <Button label="Add record" loading={busy} disabled={!fits(title, LIMITS.legacyTitle)} onPress={add} />
         </View>
       </Card>
     </Page>

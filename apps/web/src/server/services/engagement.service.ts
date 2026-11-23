@@ -3,6 +3,7 @@
 // - Comments have one level of replies. Replying to a reply attaches to the same top-level
 //   comment and starts with "@Name". Deleting leaves "Comment removed" if it has replies.
 // - Spam limit: 5 comments a minute per person.
+import { LIMITS, type CommentData } from "@baskyclub/shared";
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, forbidden, notFound } from "../errors";
@@ -16,7 +17,7 @@ import { requireInteractivePost } from "./posts.service";
 const COMMENTS_PER_MINUTE = 5;
 
 export const createCommentInput = z.object({
-  content: z.string().trim().min(1, "Write a comment.").max(1000),
+  content: z.string().trim().min(LIMITS.comment.min, "Write a comment.").max(LIMITS.comment.max),
   parentId: uuid.optional(),
 });
 export const commentsQuery = z.object({
@@ -70,7 +71,7 @@ type CommentRow = {
 
 const isGone = (c: { deletedAt: Date | null; moderationStatus: string }) => !!c.deletedAt || c.moderationStatus !== "published";
 
-function toComment(viewer: Viewer | null, c: CommentRow, postAuthorId: string, replyCount?: number) {
+function toComment(viewer: Viewer | null, c: CommentRow, postAuthorId: string, replyCount?: number): CommentData {
   const removed = isGone(c);
   return {
     id: c.id,

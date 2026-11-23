@@ -4,6 +4,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
+import { ADULT_AGE, ageOn, fits, LIMITS } from '@baskyclub/shared';
 
 import { AuthShell } from '@/components/auth-shell';
 import { Button } from '@/components/button';
@@ -16,21 +17,19 @@ import { notify } from '@/lib/notify';
 import { errorMessage, useSession } from '@/lib/session';
 import { fonts, radius, space, useTheme } from '@/theme';
 
-/** DD/MM/YYYY (spaces optional) → age in years, or undefined while incomplete. */
-function ageFromText(t: string): number | undefined {
-  const m = t.replace(/\s/g, '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return undefined;
-  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-  const n = new Date();
-  let a = n.getFullYear() - d.getFullYear();
-  if (n < new Date(n.getFullYear(), d.getMonth(), d.getDate())) a--;
-  return a;
-}
-
-/** DD/MM/YYYY → YYYY-MM-DD for the API. */
+/** DD/MM/YYYY (spaces optional) → YYYY-MM-DD for the API, or undefined if it isn't a real date (e.g. 31/02). */
 function isoFromText(t: string): string | undefined {
   const m = t.replace(/\s/g, '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : undefined;
+  if (!m) return undefined;
+  const iso = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  const d = new Date(`${iso}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(iso) ? iso : undefined;
+}
+
+/** Age the same way the server counts it (UTC day), or undefined while the date is incomplete. */
+function ageFromText(t: string): number | undefined {
+  const iso = isoFromText(t);
+  return iso ? ageOn(iso) : undefined;
 }
 
 /**
@@ -47,10 +46,14 @@ export default function Signup() {
   const [gender, setGender] = useState<'male' | 'female'>('male');
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
   const age = ageFromText(f.dob);
-  const minor = age !== undefined && age < 18;
+  const minor = age !== undefined && age < ADULT_AGE;
   const [parentEmail, setParentEmail] = useState('');
   const [parentName, setParentName] = useState('');
-  const ready = Object.values(f).every(Boolean) && (!minor || (/\S+@\S+\.\S+/.test(parentEmail) && parentName.trim().length > 1));
+  const ready =
+    Object.values(f).every(Boolean) &&
+    fits(f.name, LIMITS.personName) &&
+    fits(f.password, LIMITS.password, false) &&
+    (!minor || (/\S+@\S+\.\S+/.test(parentEmail) && fits(parentName, LIMITS.personName)));
 
   const create = async () => {
     const dateOfBirth = isoFromText(f.dob);
@@ -82,7 +85,7 @@ export default function Signup() {
 
   return (
     <AuthShell title="Create your account" subtitle="One profile for every club, match and tournament.">
-      <Field label="Full name" value={f.name} onChangeText={set('name')} placeholder="As on your ID card" autoComplete="name" />
+      <Field label="Full name" value={f.name} onChangeText={set('name')} maxLength={LIMITS.personName.max} placeholder="As on your ID card" autoComplete="name" />
       <Field label="Email" value={f.email} onChangeText={set('email')} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" />
       <Field label="Mobile number" value={f.phone} onChangeText={set('phone')} placeholder="98765 43210" keyboardType="phone-pad" hint="Friends add you to match rooms with this number." />
       <Field label="Date of birth" value={f.dob} onChangeText={set('dob')} placeholder="DD / MM / YYYY" keyboardType="number-pad" hint="Decides age categories like U-16 and U-18." />
@@ -90,7 +93,7 @@ export default function Signup() {
         <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: c.officialSoft }}>
           <Text variant="caption" style={{ color: c.official, fontFamily: fonts.bodyBold }}>Under 18? A parent needs to confirm.</Text>
           <Text variant="caption" color="textSecondary">We'll email your parent a link. Until they confirm, you can look around but not post, comment or join clubs.</Text>
-          <Field label="Parent's name" value={parentName} onChangeText={setParentName} placeholder="Parent or guardian" autoComplete="name" />
+          <Field label="Parent's name" value={parentName} onChangeText={setParentName} maxLength={LIMITS.personName.max} placeholder="Parent or guardian" autoComplete="name" />
           <Field label="Parent's email" value={parentEmail} onChangeText={setParentEmail} placeholder="parent@example.com" keyboardType="email-address" autoCapitalize="none" />
         </View>
       )}
@@ -105,7 +108,7 @@ export default function Signup() {
           <Icon ios="chevron.right" android="chevron_right" size={14} color={c.textMuted} />
         </Pressable>
       </View>
-      <Field label="Password" value={f.password} onChangeText={set('password')} placeholder="At least 8 characters" secureTextEntry autoComplete="new-password" />
+      <Field label="Password" value={f.password} onChangeText={set('password')} maxLength={LIMITS.password.max} placeholder="At least 8 characters" secureTextEntry autoComplete="new-password" />
       {!!error && <Text variant="caption" style={{ color: c.live }}>{error}</Text>}
       <Button label="Create account" disabled={!ready || loading} loading={loading} onPress={create} />
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.xs, marginTop: space.sm }}>

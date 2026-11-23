@@ -1,6 +1,7 @@
 // Courts and the Clubs-tab map (clubs + courts near you), plus club practice hours.
 // Anyone can suggest a court; it shows on the map once the Basky team approves it.
 import type { Prisma } from "@prisma/client";
+import { LIMITS } from "@baskyclub/shared";
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, forbidden, notFound } from "../errors";
@@ -14,7 +15,7 @@ const lng = z.coerce.number().min(-180).max(180);
 const SURFACES = ["hardwood", "synthetic", "concrete", "outdoor_asphalt"] as const;
 
 export const courtInput = z.object({
-  name: z.string().trim().min(2).max(120),
+  name: z.string().trim().min(LIMITS.courtName.min).max(LIMITS.courtName.max),
   districtCode: z.string().trim().toUpperCase(),
   clubId: uuid.optional(),
   indoor: z.boolean().default(false),

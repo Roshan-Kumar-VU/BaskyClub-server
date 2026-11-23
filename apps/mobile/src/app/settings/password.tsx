@@ -1,5 +1,6 @@
 'use no memo';
 
+import { fits, LIMITS } from '@baskyclub/shared';
 import { useState } from 'react';
 
 import { Button } from '@/components/button';
@@ -33,10 +34,10 @@ export default function ChangePassword() {
   return (
     <Page>
       <Field label="Current password" value={cur} onChangeText={setCur} secureTextEntry autoComplete="current-password" />
-      <Field label="New password" value={next} onChangeText={setNext} secureTextEntry autoComplete="new-password" hint="At least 8 characters." />
+      <Field label="New password" value={next} onChangeText={setNext} secureTextEntry autoComplete="new-password" hint={`At least ${LIMITS.password.min} characters.`} maxLength={LIMITS.password.max} />
       <Field label="New password again" value={again} onChangeText={setAgain} secureTextEntry autoComplete="new-password" />
       {mismatch && <Text variant="caption" color="live">The new passwords don't match.</Text>}
-      <Button label="Change password" loading={busy} disabled={!cur || next.length < 8 || next !== again} onPress={save} />
+      <Button label="Change password" loading={busy} disabled={!cur || !fits(next, LIMITS.password, false) || next !== again} onPress={save} />
     </Page>
   );
 }

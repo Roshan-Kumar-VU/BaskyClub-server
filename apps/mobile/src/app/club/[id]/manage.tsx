@@ -1,5 +1,6 @@
 'use no memo';
 
+import { fits, LIMITS } from '@baskyclub/shared';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -85,14 +86,14 @@ export default function ManageClub() {
 
       <Card title="Club details">
         <View style={{ padding: space.lg, gap: space.md }}>
-          <Field label="Name" value={f.name} onChangeText={set('name')} />
+          <Field label="Name" value={f.name} onChangeText={set('name')} maxLength={LIMITS.clubName.max} />
           <Field label="Motto" value={f.motto} onChangeText={set('motto')} />
           <Area label="About" value={f.description} onChangeText={set('description')} />
           <View style={{ flexDirection: 'row', gap: space.sm }}>
             <Button compact kind="secondary" label={f.logoUrl ? 'Change logo' : 'Add logo'} onPress={() => pick('logoUrl')} />
             <Button compact kind="secondary" label={f.bannerUrl ? 'Change banner' : 'Add banner'} onPress={() => pick('bannerUrl')} />
           </View>
-          <Button label="Save details" loading={saving} disabled={f.name.trim().length < 2} onPress={save} />
+          <Button label="Save details" loading={saving} disabled={!fits(f.name, LIMITS.clubName)} onPress={save} />
         </View>
       </Card>
 

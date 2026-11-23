@@ -2,6 +2,7 @@
 // One row per stint: join → "pending"; accepted → "active"; then "left" / "removed",
 // or "rejected". Rejoining adds a new row, so history is kept. The database allows only
 // one pending/active row per person per club (index club_memberships_one_open).
+import type { ClubMemberData, ClubRoleName, Position } from "@baskyclub/shared";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../db";
@@ -200,10 +201,14 @@ export async function listMembers(clubId: string, viewer: Viewer | null, query: 
     prisma.clubRole.findMany({ where: { clubId, toAt: null }, select: { userId: true, role: true } }),
   ]);
   return {
-    members: rows.map((m) => ({
-      ...m,
-      roles: roles.filter((r) => r.userId === m.user.id).map((r) => r.role),
-    })),
+    // Shape shared with the apps (packages/shared wire.ts)
+    members: rows.map(
+      (m): ClubMemberData => ({
+        ...m,
+        primaryPosition: m.primaryPosition as Position | null,
+        roles: roles.filter((r) => r.userId === m.user.id).map((r) => r.role as ClubRoleName),
+      }),
+    ),
     total,
   };
 }

@@ -4,6 +4,7 @@
 // Powers: owner/admin manage the page; any member can post officially and send announcements;
 // the Basky team can do everything. A state association has no automatic power over district pages.
 import type { Prisma } from "@prisma/client";
+import { LIMITS } from "@baskyclub/shared";
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, conflict, forbidden, notFound } from "../errors";
@@ -65,8 +66,8 @@ export const grantOrgMemberInput = z.object({
 });
 
 export const officeBearerInput = z.object({
-  name: z.string().trim().min(2).max(120),
-  designation: z.string().trim().min(2).max(60),
+  name: z.string().trim().min(LIMITS.officeBearerName.min).max(LIMITS.officeBearerName.max),
+  designation: z.string().trim().min(LIMITS.officeBearerDesignation.min).max(LIMITS.officeBearerDesignation.max),
   userId: uuid.nullable().optional(),
   photoUrl: mediaUrl.nullable().optional(),
   sortOrder: z.number().int().min(0).max(999).default(0),
@@ -77,7 +78,7 @@ export const updateOfficeBearerInput = officeBearerInput.partial();
 
 export const legacyInput = z.object({
   recordType: z.enum(["history", "tournament_record", "achievement"]),
-  title: z.string().trim().min(2).max(200),
+  title: z.string().trim().min(LIMITS.legacyTitle.min).max(LIMITS.legacyTitle.max),
   year: z.number().int().min(1900).max(2100).nullable().optional(),
   body: z.string().trim().max(10000).nullable().optional(),
   winner: z.string().trim().max(120).nullable().optional(),
@@ -365,7 +366,7 @@ export async function deleteOfficeBearer(viewer: Viewer, bearerId: string) {
 // ---- Media / Legacy (#66) -----------------------------------------------------------------------------
 
 async function checkLegacyMedia(media: { mediaType: string; url: string }[] | undefined) {
-  const { normalizeYouTubeUrl } = await import("../lib/youtube");
+  const { normalizeYouTubeUrl } = await import("@baskyclub/shared");
   return (media ?? []).map((m, i) => {
     if (m.mediaType === "youtube") {
       const url = normalizeYouTubeUrl(m.url);

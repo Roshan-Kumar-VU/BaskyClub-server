@@ -1,5 +1,6 @@
 'use no memo';
 
+import { fits, LIMITS } from '@baskyclub/shared';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
@@ -58,12 +59,12 @@ export default function Bearers() {
       ))}
       <Card title="Add an office bearer">
         <View style={{ padding: space.lg, gap: space.md }}>
-          <Field label="Name as it should appear" value={name} onChangeText={setName} placeholder="Mr. S. Rajendran" />
-          <Field label="Title" value={title} onChangeText={setTitle} placeholder="President, Secretary, Treasurer…" />
+          <Field label="Name as it should appear" value={name} onChangeText={setName} placeholder="Mr. S. Rajendran" maxLength={LIMITS.officeBearerName.max} />
+          <Field label="Title" value={title} onChangeText={setTitle} placeholder="President, Secretary, Treasurer…" maxLength={LIMITS.officeBearerDesignation.max} />
           <Field label="Term starts (YYYY-MM-DD)" value={from} onChangeText={setFrom} />
           <PersonPicker label="Link to their BaskyCLub account (optional)" onPick={(p) => { setUserId(p.id); if (!name) setName(p.name); }} />
           {userId && <Text variant="caption" color="accentText">Linked to an account ✓</Text>}
-          <Button label="Add" disabled={name.trim().length < 2 || title.trim().length < 2 || !/^\d{4}-\d{2}-\d{2}$/.test(from)} onPress={add} />
+          <Button label="Add" disabled={!fits(name, LIMITS.officeBearerName) || !fits(title, LIMITS.officeBearerDesignation) || !/^\d{4}-\d{2}-\d{2}$/.test(from)} onPress={add} />
         </View>
       </Card>
     </Page>

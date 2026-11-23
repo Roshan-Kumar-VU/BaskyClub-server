@@ -1,5 +1,6 @@
 'use no memo';
 
+import { fits, LIMITS } from '@baskyclub/shared';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -78,14 +79,14 @@ export default function EditProfile() {
           <Button compact kind="secondary" label={uploading === 'cover' ? 'Uploading…' : f.coverPhotoUrl ? 'Change cover photo' : 'Add cover photo'} onPress={() => pick('cover')} />
         </View>
       </View>
-      <Field label="Name" value={f.name} onChangeText={set('name')} autoComplete="name" />
+      <Field label="Name" value={f.name} onChangeText={set('name')} autoComplete="name" maxLength={LIMITS.personName.max} />
       <Area label="Bio" value={f.bio} onChangeText={set('bio')} placeholder="Position, club, what you love about the game" max={300} />
       <Field label="Instagram username" value={f.instagram} onChangeText={set('instagram')} placeholder="yourname" autoCapitalize="none" hint={user.isMinor ? 'Hidden on your profile until you turn 18.' : undefined} />
       <Field label="YouTube channel" value={f.youtube} onChangeText={set('youtube')} placeholder="@yourchannel" autoCapitalize="none" hint={user.isMinor ? 'Hidden on your profile until you turn 18.' : undefined} />
       <Choice label="Plays in" value={f.gender} onChange={set('gender')} options={[{ value: 'male', label: "Men's" }, { value: 'female', label: "Women's" }]} />
       <DistrictSelect label="Home district" value={f.homeDistrictCode} onChange={set('homeDistrictCode')} />
       <Text variant="caption" color="textMuted">Email, phone and date of birth are never shown on your profile.</Text>
-      <Button label="Save" loading={saving} disabled={f.name.trim().length < 2} onPress={save} />
+      <Button label="Save" loading={saving} disabled={!fits(f.name, LIMITS.personName)} onPress={save} />
       <Pressable onPress={back}><Text color="textMuted" style={{ textAlign: 'center', color: c.textMuted }}>Cancel</Text></Pressable>
     </Page>
   );

@@ -16,7 +16,7 @@ import { LoginPromptBody } from '@/components/login-prompt';
 import { Segmented } from '@/components/segmented';
 import { SheetHeader } from '@/components/sheet-header';
 import { Text } from '@/components/text';
-import { youtubeId } from '@/components/youtube-card';
+import { youtubeId } from '@baskyclub/shared';
 import { createPost, getDistrict, getMyClubs } from '@/data/repo';
 import { notify } from '@/lib/notify';
 import { errorMessage, useSession } from '@/lib/session';
