@@ -48,12 +48,14 @@ export type ModCase = {
   target: any;
 };
 
-export const getCases = (status: 'open' | 'approved' | 'removed' = 'open') =>
+export type CaseStatus = 'open' | 'hidden' | 'approved' | 'removed';
+export const getCases = (status: CaseStatus = 'open') =>
   read(`mod:cases:${status}`, async () => (await get<{ cases: ModCase[] }>(`/api/moderation/cases${q({ status })}`)).cases, [] as ModCase[]);
 
-export async function decideCase(id: string, decision: 'approve' | 'remove', note?: string) {
+/** approve = publish / keep (also brings back a hidden item) · hide = only its author sees it, reversible · remove = final. */
+export async function decideCase(id: string, decision: 'approve' | 'hide' | 'remove', note?: string) {
   await post(`/api/moderation/cases/${id}/decide`, { decision, note });
-  invalidate('mod:', 'feed:', 'userposts:', 'club:posts:', 'comments:');
+  invalidate('mod:', 'feed:', 'post:', 'userposts:', 'club:posts:', 'org:posts:', 'comments:', 'replies:', 'alerts');
 }
 
 // ── Clubs: register and manage ────────────────────────────────────────────
@@ -258,7 +260,8 @@ export async function revokeBadge(id: string) {
 export const searchUsers = (term: string, status?: string) =>
   read(`admin:users:${term}:${status ?? ''}`, async () => (await get<{ users: any[] }>(`/api/admin/users${q({ q: term, status, limit: 30 })}`)).users, [] as any[]);
 
-export async function setUserStatus(userId: string, status: 'active' | 'suspended', reason: string) {
+export type AccountStatus = 'active' | 'limited' | 'suspended' | 'deleted';
+export async function setUserStatus(userId: string, status: AccountStatus, reason: string) {
   await post(`/api/admin/users/${userId}/status`, { status, reason });
   invalidate('admin:users', 'feed:');
 }

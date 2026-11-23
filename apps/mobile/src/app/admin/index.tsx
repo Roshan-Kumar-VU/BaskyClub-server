@@ -29,12 +29,12 @@ export default function Admin() {
         <Row label="Creator requests" value={String(getCreatorRequests().length)} onPress={() => router.push('/admin/creators')} />
       </Card>
       <Card title="Manage">
-        <Row first label="Associations" sub="Create, publish, hand over, districts covered" onPress={() => router.push('/admin/associations')} />
+        <Row first label="Associations" sub={roles.includes('super_admin') ? 'Create, publish, hand over, districts covered' : 'Publish, hand over, districts covered'} onPress={() => router.push('/admin/associations')} />
         <Row label="Badges" sub="Verified clubs and Creators" onPress={() => router.push('/admin/badges')} />
-        <Row label="Users" sub="Find, suspend or restore accounts" onPress={() => router.push('/admin/users')} />
+        <Row label="Users" sub="Find accounts; limit, suspend, restore or delete" onPress={() => router.push('/admin/users')} />
         {roles.includes('super_admin') && <Row label="BaskyCLub roles" sub="Super admins, Basky team, moderators" onPress={() => router.push('/admin/roles')} />}
         <Row label="Send an alert to everyone" onPress={() => router.push({ pathname: '/announce', params: { as: 'basky' } })} />
-        <Row label="Change history" onPress={() => router.push('/admin/history')} />
+        {roles.includes('super_admin') && <Row label="Change history" onPress={() => router.push('/admin/history')} />}
       </Card>
     </Page>
   );

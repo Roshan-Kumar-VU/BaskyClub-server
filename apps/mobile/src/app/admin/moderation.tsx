@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/empty-state';
 import { Card, Page } from '@/components/form';
 import { Segmented } from '@/components/segmented';
 import { Text } from '@/components/text';
-import { decideCase, getCases, type ModCase } from '@/data/manage';
+import { type CaseStatus, decideCase, getCases, type ModCase } from '@/data/manage';
 import { useStoreVersion } from '@/data/store';
 import { ago } from '@/lib/format';
 import { notify } from '@/lib/notify';
@@ -19,17 +19,17 @@ import { space } from '@/theme';
 
 const sourceLabel = { no_club_review: 'No club — needs review', report: 'Reported', ai: 'AI flag' } as const;
 
-/** Moderators: posts from people without a club, and reports (#25, #41). */
+/** Moderators (PRD §8): reported posts, comments and people. Publish/keep, hide (reversible) or remove. */
 export default function Moderation() {
   useStoreVersion();
   const { user } = useSession();
-  const [tab, setTab] = useState<'open' | 'approved' | 'removed'>('open');
+  const [tab, setTab] = useState<CaseStatus>('open');
   const [busy, setBusy] = useState<string | null>(null);
   const isMod = !!user?.platformRoles.some((r) => ['moderator', 'basky_admin', 'super_admin'].includes(r));
   if (!isMod) return <EmptyState ios="lock.fill" android="lock" title="Moderators only" />;
   const cases = getCases(tab);
 
-  const decide = async (c: ModCase, decision: 'approve' | 'remove') => {
+  const decide = async (c: ModCase, decision: 'approve' | 'hide' | 'remove') => {
     setBusy(c.id + decision);
     try {
       await decideCase(c.id, decision);
@@ -50,7 +50,8 @@ export default function Moderation() {
 
   return (
     <Page>
-      <Segmented value={tab} onChange={setTab} options={[{ value: 'open', label: 'To review' }, { value: 'approved', label: 'Approved' }, { value: 'removed', label: 'Removed' }]} />
+      <Segmented value={tab} onChange={setTab} options={[{ value: 'open', label: 'To review' }, { value: 'hidden', label: 'Hidden' }, { value: 'approved', label: 'Kept' }, { value: 'removed', label: 'Removed' }]} />
+      {tab === 'hidden' && <Text variant="caption" color="textMuted">Hidden items are seen only by their author. Publish one again, or remove it for good.</Text>}
       {!cases.length && <EmptyState ios="checkmark.circle" android="check_circle" title={tab === 'open' ? 'Nothing to review' : 'Nothing here'} />}
       {cases.map((c) => (
         <Card key={c.id}>
@@ -65,11 +66,21 @@ export default function Moderation() {
             {c.targetType === 'post' && c.target && (
               <Text variant="caption" color="accentText" onPress={() => router.push({ pathname: '/post/[id]', params: { id: c.targetId } })}>Open post</Text>
             )}
-            {tab === 'open' && (
+            {(tab === 'open' || tab === 'hidden') && (
               <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.xs }}>
                 <View style={{ flex: 1 }}>
-                  <Button compact label={c.targetType === 'user' ? 'Dismiss' : c.source === 'no_club_review' ? 'Publish' : 'Keep'} loading={busy === c.id + 'approve'} onPress={() => decide(c, 'approve')} />
+                  <Button
+                    compact
+                    label={c.targetType === 'user' ? 'Dismiss' : tab === 'hidden' || c.source === 'no_club_review' ? 'Publish' : 'Keep'}
+                    loading={busy === c.id + 'approve'}
+                    onPress={() => decide(c, 'approve')}
+                  />
                 </View>
+                {c.targetType !== 'user' && tab === 'open' && (
+                  <View style={{ flex: 1 }}>
+                    <Button compact kind="secondary" label="Hide" loading={busy === c.id + 'hide'} onPress={() => decide(c, 'hide')} />
+                  </View>
+                )}
                 {c.targetType !== 'user' && (
                   <View style={{ flex: 1 }}>
                     <Button compact kind="secondary" label="Remove" loading={busy === c.id + 'remove'} onPress={() => decide(c, 'remove')} />

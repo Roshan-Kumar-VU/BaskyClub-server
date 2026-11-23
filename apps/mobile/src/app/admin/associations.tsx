@@ -12,14 +12,15 @@ import { Text } from '@/components/text';
 import { createOrg, getAllOrgs, updateOrg } from '@/data/manage';
 import { useStoreVersion } from '@/data/store';
 import { notify } from '@/lib/notify';
-import { errorMessage } from '@/lib/session';
+import { errorMessage, useSession } from '@/lib/session';
 import { space } from '@/theme';
 
 const statusLabel = { draft: 'Draft (hidden)', published: 'Managed by BaskyCLub', claimed: 'Official (run by them)' } as const;
 
-/** Basky team: create associations (start as hidden drafts), publish them, hand them over (#59, #60). */
+/** Basky team: publish associations and hand them over (#59, #60). Only super admins create them (PRD §8). */
 export default function AdminAssociations() {
   useStoreVersion();
+  const isSuper = !!useSession().user?.platformRoles.includes('super_admin');
   const orgs = getAllOrgs();
   const [name, setName] = useState('');
   const [shortName, setShortName] = useState('');
@@ -66,7 +67,7 @@ export default function AdminAssociations() {
           </View>
         ))}
       </Card>
-      <Card title="Create an association">
+      {isSuper && <Card title="Create an association">
         <View style={{ padding: space.lg, gap: space.md }}>
           <Field label="Full name" value={name} onChangeText={setName} placeholder="Ranipet District Basketball Association" />
           <Field label="Short name" value={shortName} onChangeText={setShortName} placeholder="Ranipet DBA" />
@@ -75,7 +76,7 @@ export default function AdminAssociations() {
           <Text variant="caption" color="textMuted">New associations start as hidden drafts{level === 'district' ? ', under TNBA' : ''}. Add the owner from its Manage page.</Text>
           <Button label="Create" loading={busy} disabled={name.trim().length < 3 || (level === 'district' && !district)} onPress={create} />
         </View>
-      </Card>
+      </Card>}
     </Page>
   );
 }
