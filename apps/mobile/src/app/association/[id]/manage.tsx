@@ -14,6 +14,7 @@ import { updateOrg } from '@/data/manage';
 import { useStoreVersion } from '@/data/store';
 import { notify } from '@/lib/notify';
 import { errorMessage } from '@/lib/session';
+import { FEATURES } from '@/lib/features';
 import { space } from '@/theme';
 
 /**
@@ -66,7 +67,7 @@ export default function ManageAssociation() {
           <Card title="Run the page">
             <Row first label="Office bearers" sub="Titles and terms shown on the page" onPress={() => go('bearers')} />
             <Row label="Media / Legacy" sub="History, records, photos, videos" onPress={() => go('legacy')} />
-            <Row label="Affiliated clubs" sub="Requests, invites, renewals" onPress={() => go('affiliations')} />
+            {FEATURES.affiliationRequests && <Row label="Affiliated clubs" sub="Requests, invites, renewals" onPress={() => go('affiliations')} />}
             <Row label="Association team" sub="Who can use these tools" onPress={() => go('team')} />
           </Card>
           <Card title="Contact details">

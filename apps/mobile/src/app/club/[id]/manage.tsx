@@ -17,6 +17,7 @@ import { transferClub, updateClub } from '@/data/manage';
 import { useStoreVersion } from '@/data/store';
 import { confirm, notify } from '@/lib/notify';
 import { errorMessage } from '@/lib/session';
+import { FEATURES } from '@/lib/features';
 import { space } from '@/theme';
 
 /** Manage club (owner, admins, Basky team): details, people, practice hours, affiliation, alerts, hand over. */
@@ -80,7 +81,7 @@ export default function ManageClub() {
         <Row first label="People and roles" sub="Positions, coach/referee, admins, captain, remove" onPress={() => router.push({ pathname: '/club/[id]/members', params: { id } })} />
         <Row label="Join requests" onPress={() => router.push({ pathname: '/club/[id]/requests', params: { id } })} />
         <Row label="Practice hours" onPress={() => router.push({ pathname: '/club/[id]/timings', params: { id } })} />
-        <Row label="Association affiliation" sub={club.affiliatedTo ? `Affiliated to ${club.affiliatedTo.shortName ?? club.affiliatedTo.name}` : 'Not affiliated'} onPress={() => router.push({ pathname: '/club/[id]/affiliation', params: { id } })} />
+        <Row label="Association affiliation" sub={club.affiliatedTo ? `Affiliated to ${club.affiliatedTo.shortName ?? club.affiliatedTo.name}` : 'Not affiliated'} onPress={FEATURES.affiliationRequests ? () => router.push({ pathname: '/club/[id]/affiliation', params: { id } }) : undefined} />
         <Row label="Send an alert" sub="To members or followers" onPress={() => router.push({ pathname: '/announce', params: { clubId: id } })} />
       </Card>
 
