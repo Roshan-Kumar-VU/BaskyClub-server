@@ -327,17 +327,17 @@ function merge<T extends { id: string; createdAt: string }>(older: T[], newer: T
  * First page of a paged list. When the cache refreshes it, pages loaded with "load more"
  * are kept (merged), so a refresh never shrinks what the person is reading.
  */
+function firstPageFetcher<T extends { id: string; createdAt: string }>(key: string, fetchFirst: () => Promise<Paged<T>>) {
+  return async (): Promise<Paged<T>> => {
+    const fresh = await fetchFirst();
+    const old = peek<Paged<T>>(key);
+    if (!old || old.items.length <= fresh.items.length) return fresh;
+    return { items: merge(old.items, fresh.items), nextCursor: old.nextCursor };
+  };
+}
+
 function readPaged<T extends { id: string; createdAt: string }>(key: string, fetchFirst: () => Promise<Paged<T>>) {
-  const page = read<Paged<T> | undefined>(
-    key,
-    async () => {
-      const fresh = await fetchFirst();
-      const old = peek<Paged<T>>(key);
-      if (!old || old.items.length <= fresh.items.length) return fresh;
-      return { items: merge(old.items, fresh.items), nextCursor: old.nextCursor };
-    },
-    undefined,
-  );
+  const page = read<Paged<T> | undefined>(key, firstPageFetcher(key, fetchFirst), undefined);
   return { items: page?.items ?? [], hasMore: !!page?.nextCursor, loaded: isLoaded(key) };
 }
 
@@ -373,6 +373,20 @@ export function getComments(postId: string): { comments: CommentView[]; hasMore:
   const p = readPaged(commentsKey(postId), () => fetchComments(postId));
   return { comments: p.items, hasMore: p.hasMore };
 }
+/**
+ * Fresh post and comments now (PRD §7: comments refresh on open and on pull-to-refresh).
+ * Refreshes page 1 of the comments (pages loaded with "load more" are kept) and every reply
+ * thread that is already open. Resolves when all of it has arrived.
+ */
+export async function refreshPostDetail(postId: string) {
+  const openThreads = (peek<Paged<CommentView>>(commentsKey(postId))?.items ?? []).filter((c) => isLoaded(repliesKey(c.id)));
+  await Promise.all([
+    load(`post:${postId}`, async () => keep([await get<PostCard>(`/api/posts/${postId}`)])[0]),
+    load(commentsKey(postId), firstPageFetcher(commentsKey(postId), () => fetchComments(postId))),
+    ...openThreads.map((c) => load(repliesKey(c.id), firstPageFetcher(repliesKey(c.id), () => fetchReplies(postId, c.id)))),
+  ]);
+}
+
 export const loadMoreComments = (postId: string) => loadMorePaged(commentsKey(postId), (cursor) => fetchComments(postId, cursor));
 
 /** Replies to one top-level comment; the first call starts loading them. */

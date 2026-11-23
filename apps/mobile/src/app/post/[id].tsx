@@ -2,8 +2,8 @@
 'use no memo';
 
 import { router, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -21,6 +21,7 @@ import {
   isPostLoaded,
   loadMoreComments,
   loadMoreReplies,
+  refreshPostDetail,
 } from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
 import { timeAgo } from '@/lib/format';
@@ -42,6 +43,19 @@ export default function PostDetail() {
   const [replyTo, setReplyTo] = useState<C | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const input = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  // PRD §7: comments refresh when the post opens and on pull-to-refresh (no live stream)
+  useEffect(() => {
+    refreshPostDetail(id);
+  }, [id]);
+  const pullToRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshPostDetail(id);
+    } finally {
+      setRefreshing(false);
+    }
+  };
   const post = getPost(id);
   if (!post && !isPostLoaded(id)) return <View style={{ flex: 1, backgroundColor: c.background }} />;
   if (!post) return <EmptyState ios="lock" android="lock" title="Post not available" body="It may be for club members only, or still in review." />;
@@ -119,7 +133,11 @@ export default function PostDetail() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={100}>
-      <ScrollView contentContainerStyle={{ paddingBottom: space.xl }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: space.xl }}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={pullToRefresh} tintColor={c.accent} colors={[c.accent]} />}
+      >
         <PostCard post={post} />
         {!!user && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.lg, paddingHorizontal: space.lg, paddingTop: space.sm }}>
