@@ -29,3 +29,7 @@ Then follow [apps/web/README.md](apps/web/README.md) for the database and `.env`
 | `pnpm mobile <script>` | Run a script in apps/mobile, e.g. `pnpm mobile start` |
 
 Add a package to one app: `pnpm --filter @baskyclub/web add <pkg>`. For the Expo app always use `cd apps/mobile && pnpm expo install <pkg>` (picks SDK-compatible versions).
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push: typecheck, the API tests against a throwaway Postgres 17, the web build, and an Android bundle of the app (catches workspace/Metro resolution problems).
