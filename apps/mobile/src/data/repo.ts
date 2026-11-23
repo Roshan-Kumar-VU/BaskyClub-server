@@ -113,6 +113,8 @@ export type Me = User & {
   platformRoles: string[];
   isMinor: boolean;
   awaitingParent: boolean;
+  /** Can post now (PRD §7: current/past club member or staff, account not limited). From the server. */
+  canPost: boolean;
   orgMemberships: { organizationId: string; accessLevel: 'owner' | 'admin' | 'member'; organization: { name: string; level: string } }[];
   clubRoles: { id: string; clubId: string; role: 'owner' | 'admin' | 'captain' }[];
   creatorBadge: CreatorBadge;
@@ -145,6 +147,7 @@ export async function fetchMe(): Promise<Me> {
     platformRoles: m.platformRoles,
     isMinor: m.isMinor,
     awaitingParent: m.awaitingParent,
+    canPost: !!m.canPost,
     orgMemberships: m.orgMemberships ?? [],
     clubRoles: m.clubRoles ?? [],
     creatorBadge: m.creatorBadge ?? { status: 'none' },

@@ -13,7 +13,7 @@ import { officialPost } from '@/data/manage';
 import { notify } from '@/lib/notify';
 import { errorMessage } from '@/lib/session';
 
-/** Post as the association (any member of its team). Official posts are public. */
+/** Post as the association (its owner/admins, or the Basky team). Official posts are public. */
 export default function OfficialPost() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const org = getOrgRaw(id);

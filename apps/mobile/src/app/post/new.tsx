@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
+import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
 import { LoginPromptBody } from '@/components/login-prompt';
 import { Segmented } from '@/components/segmented';
@@ -28,7 +29,8 @@ const MAX_PHOTOS = 10;
 /**
  * New post: up to 10 photos and/or one YouTube link. Posting as a club lets
  * you choose who sees it (public / club page / members). District is filled
- * automatically. No club → reviewed by the BaskyCLub team (#41).
+ * automatically. Posting is for current or past club members and staff (PRD §7);
+ * a post is published at once.
  */
 export default function NewPost() {
   const { c } = useTheme();
@@ -42,6 +44,7 @@ export default function NewPost() {
   const [yt, setYt] = useState('');
   const [sending, setSending] = useState(false);
   if (!user) return <LoginPromptBody reason="Log in to share a post." />;
+  if (!user.canPost) return <CannotPost awaitingParent={user.awaitingParent} limited={user.status === 'limited'} />;
 
   const club = clubs.find((x) => x.clubId === clubId);
   const district = getDistrict(club?.districtCode ?? user.homeDistrictCode);
@@ -58,7 +61,7 @@ export default function NewPost() {
       const res = await createPost({ userId: user.userId, clubId, content: text.trim(), visibility, images, youtube: yt.trim() || undefined });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
-      if (res.moderationStatus === 'in_review') notify('Sent for review', 'Posts from accounts without a club are checked by the BaskyCLub team before they appear.');
+      if (res.moderationStatus !== 'published') notify('Not visible yet', 'This post is waiting for a moderator.');
     } catch (e) {
       notify("Couldn't share the post", errorMessage(e));
     } finally {
@@ -142,5 +145,26 @@ export default function NewPost() {
         <Button label={sending ? 'Sharing…' : 'Share post'} loading={sending} disabled={sending || (!text.trim() && !images.length && !yt.trim()) || !ytValid} onPress={share} />
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+/** Why posting isn't open to this account, and what to do about it. */
+function CannotPost({ awaitingParent, limited }: { awaitingParent: boolean; limited: boolean }) {
+  const { c } = useTheme();
+  const [title, body] = awaitingParent
+    ? ['Waiting for your parent', 'Your parent or guardian needs to confirm your account first. We sent them an email.']
+    : limited
+      ? ['Your account can only browse', 'Contact the BaskyCLub team if you think this is a mistake.']
+      : ['Join a club to post', 'Posting is open to members of a club or academy. Find one near you and ask to join.'];
+  return (
+    <View style={{ flex: 1, backgroundColor: c.card }}>
+      <SheetHeader title="New post" />
+      <EmptyState ios="person.2" android="group" title={title} body={body} />
+      {!awaitingParent && !limited && (
+        <View style={{ padding: space.lg }}>
+          <Button label="Find a club" onPress={() => { router.back(); router.push('/clubs'); }} />
+        </View>
+      )}
+    </View>
   );
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
-import { api, prisma, resetDatabase, TEST_ORGS, TEST_PASSWORD, TEST_USERS } from "./helpers";
+import { api, prisma, resetDatabase, TEST_ORGS, TEST_PASSWORD, TEST_USERS, type TestUserKey } from "./helpers";
 
 const adult = {
   name: "New Person",
@@ -198,5 +198,20 @@ describe("Dates must be real calendar days", () => {
       api("POST", `/api/associations/${V}/office-bearers`, { as: "districtAdmin", body: { name: "Ms. Date Check", designation: "Treasurer", termFrom } });
     assert.equal((await add("2025-02-29")).status, 400);
     assert.equal((await add("2024-02-29")).status, 201);
+  });
+});
+
+describe("/me says whether you can post (PRD §7)", () => {
+  before(resetDatabase);
+
+  it("current or past club members and staff can; others and limited accounts can't", async () => {
+    const canPost = async (as: TestUserKey) => (await api("GET", "/api/auth/me", { as })).body.canPost;
+    for (const who of ["player", "normalUser", "moderator", "clubOwner"] as const) assert.equal(await canPost(who), true, who);
+    for (const who of ["creator", "districtAdmin", "joiner", "pendingClubOwner", "minorAwaitingParent"] as const) {
+      assert.equal(await canPost(who), false, who);
+    }
+    // limited by the team → false even for a club member
+    await prisma.user.update({ where: { id: (await api("GET", "/api/auth/me", { as: "player" })).body.id }, data: { status: "limited" } });
+    assert.equal(await canPost("player"), false);
   });
 });

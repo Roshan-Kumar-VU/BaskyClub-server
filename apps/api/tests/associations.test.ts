@@ -146,7 +146,7 @@ describe("Associations: page, team, office bearers, Media / Legacy, official pos
     const as = async (who: Parameters<typeof uid>[0]) => (await api("GET", `/api/associations/${V}`, { as: who })).body.viewer;
     assert.deepEqual(await as("districtAdmin"), { isFollowing: false, accessLevel: "owner", canManage: true, canPostOfficially: true });
     assert.equal((await as("associationMember")).canManage, false);
-    assert.equal((await as("associationMember")).canPostOfficially, true);
+    assert.equal((await as("associationMember")).canPostOfficially, false); // members are read-only (PRD §2)
     assert.equal((await as("normalUser")).isFollowing, true);
     assert.equal((await as("baskyTeam")).canManage, true);
     assert.equal((await as("tnbaAdmin")).canManage, false); // no automatic power over district pages

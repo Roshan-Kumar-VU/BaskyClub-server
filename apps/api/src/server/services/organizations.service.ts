@@ -187,7 +187,7 @@ export async function getOrg(viewer: Viewer | null, organizationId: string) {
       .map((a) => ({ id: a.club.id, name: a.club.name, kind: a.club.kind, logoUrl: a.club.logoUrl, districtCode: a.club.districtCode, validUntil: a.validUntil, tnbaNumber: a.tnbaNumber })),
     legacyCount,
     followerCount: followers,
-    viewer: { isFollowing: following, accessLevel: powers.accessLevel, canManage: powers.canManage, canPostOfficially: powers.isMember || isBaskyTeam(viewer) },
+    viewer: { isFollowing: following, accessLevel: powers.accessLevel, canManage: powers.canManage, canPostOfficially: powers.canManage },
   };
 }
 

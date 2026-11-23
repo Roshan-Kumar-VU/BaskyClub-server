@@ -17,8 +17,8 @@ import { errorMessage } from '@/lib/session';
 import { space } from '@/theme';
 
 /**
- * Association tools (#59–#66). Owner/admin: page, team, office bearers, Media/Legacy, affiliations.
- * Any member of the association team: official posts and alerts. Basky team: everything.
+ * Association tools (#59–#66). Owner/admin (and the Basky team): official posts, alerts, page, team,
+ * office bearers, Media/Legacy, affiliations. Association members are read-only (PRD §2).
  */
 export default function ManageAssociation() {
   useStoreVersion();
@@ -37,7 +37,7 @@ export default function ManageAssociation() {
 
   if (!org) return null;
   const v = org.viewer as { canManage: boolean; canPostOfficially: boolean; accessLevel: string | null };
-  if (!v.canManage && !v.canPostOfficially) return <EmptyState ios="lock.fill" android="lock" title="Association team only" />;
+  if (!v.canManage && !v.canPostOfficially) return <EmptyState ios="lock.fill" android="lock" title="Owners and admins only" body="Association members are listed on the page but can't change it." />;
   const go = (path: 'team' | 'bearers' | 'legacy' | 'affiliations' | 'post') => router.push({ pathname: `/association/[id]/${path}`, params: { id } });
   const set = (k: keyof typeof f) => (val: string) => setF((x) => ({ ...x, [k]: val }));
 

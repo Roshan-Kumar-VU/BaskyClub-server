@@ -66,7 +66,7 @@ export const pageQuery = z.object({
  * BaskyCLub staff, or anyone who is or was a member of an approved club/academy ("past members can
  * still post"). A removed or rejected membership doesn't count. The Creator badge alone doesn't either.
  */
-async function canPostPersonally(viewer: Viewer): Promise<boolean> {
+export async function canPostPersonally(viewer: Viewer): Promise<boolean> {
   if (viewer.platformRoles.size > 0) return true;
   const membership = await prisma.clubMembership.findFirst({
     where: { userId: viewer.id, status: { in: ["active", "left"] }, club: { status: "approved", deletedAt: null } },

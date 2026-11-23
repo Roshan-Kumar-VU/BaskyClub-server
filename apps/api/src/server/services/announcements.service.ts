@@ -122,7 +122,8 @@ export async function sendAnnouncement(viewer: Viewer, input: z.infer<typeof sen
     const org = await prisma.organization.findUnique({ where: { id: input.senderOrgId } });
     if (!org || !["published", "claimed"].includes(org.pageStatus)) throw notFound("Association");
     const powers = await getOrgPowers(viewer, org.id);
-    if (!powers.isMember && !isBaskyTeam(viewer)) throw forbidden("association_members_only", "Only the association's own team can send its announcements.");
+    // PRD §2/§6: association owners/admins (or the Basky team); association members are read-only.
+    if (!powers.canManage) throw forbidden("association_staff_only", "Only the association's owner or admins can send its announcements.");
     if (input.audience === "district_users") {
       if (!input.districtCode) throw badRequest("district_required", "Choose the district to send to.");
       const inArea = await prisma.district.findFirst({ where: { code: input.districtCode, ...(await orgArea(org)) } });

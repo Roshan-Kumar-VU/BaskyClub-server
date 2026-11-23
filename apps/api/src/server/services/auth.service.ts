@@ -13,6 +13,7 @@ import { ageOn, DAY_MS } from "../lib/dates";
 import { sendEmail } from "../lib/mailer";
 import { normalizeIndianPhone } from "../lib/phone";
 import { limitAttempts } from "../lib/rate-limit";
+import { canPostPersonally } from "./posts.service";
 
 const PARENT_LINK_DAYS = 7;
 
@@ -214,6 +215,8 @@ export async function me(viewer: Viewer) {
     platformRoles: [...viewer.platformRoles],
     // limited = browse only: an under-18 waiting for a parent, or an account the Basky team limited
     awaitingParent: user.status === "limited" && viewer.isMinor,
+    /** Can make a personal post now (PRD §7: current/past club member or staff, and not limited). */
+    canPost: user.status === "active" && (await canPostPersonally(viewer)),
     creatorBadge: await creatorStatus(viewer.id),
   };
 }

@@ -49,7 +49,7 @@ describe("Announcements and the Alerts inbox (#65, #75)", () => {
     const everyone = await api("POST", "/api/announcements", { as: "districtAdmin", body: { senderOrgId: V, audience: "everyone", title: "Hello", body: "Hello there" } });
     assert.equal(everyone.body.error.code, "audience_not_allowed");
     const notTeam = await api("POST", "/api/announcements", { as: "clubOwner", body: { senderOrgId: V, audience: "followers", title: "Hello", body: "Hello there" } });
-    assert.equal(notTeam.body.error.code, "association_members_only");
+    assert.equal(notTeam.body.error.code, "association_staff_only");
   });
 
   it("association → club admins in its area; → followers (any association member can send)", async () => {
@@ -61,7 +61,12 @@ describe("Announcements and the Alerts inbox (#65, #75)", () => {
     assert.ok(!(await inbox("player")).includes(admins.body.id));
 
     start = pushOutbox.length;
-    const followers = await api("POST", "/api/announcements", { as: "associationMember", body: { senderOrgId: V, audience: "followers", title: "New photos", body: "2025 final photos are up." } });
+    const body = { senderOrgId: V, audience: "followers", title: "New photos", body: "2025 final photos are up." };
+    // Association members are read-only (PRD §2): only owners/admins send for the association
+    const member = await api("POST", "/api/announcements", { as: "associationMember", body });
+    assert.equal(member.body.error?.code, "association_staff_only");
+    assert.equal(pushOutbox.length, start);
+    const followers = await api("POST", "/api/announcements", { as: "districtAdmin", body });
     assert.equal(followers.status, 201);
     assert.deepEqual(pushedTo(start), ["ExponentPushToken[test-normal-user]"]);
   });
@@ -103,8 +108,8 @@ describe("Announcements and the Alerts inbox (#65, #75)", () => {
 
   it("sent box, and the 10-a-day limit", async () => {
     const sent = await api("GET", "/api/alerts?box=sent", { as: "districtAdmin" });
-    assert.equal(sent.body.alerts.length, 3); // seed + 2 in this file
-    for (let i = 0; i < 7; i++) {
+    assert.equal(sent.body.alerts.length, 4); // seed + 3 in this file
+    for (let i = 0; i < 6; i++) {
       await api("POST", "/api/announcements", { as: "districtAdmin", body: { senderOrgId: V, audience: "followers", title: `Note ${i}`, body: "Short note" } });
     }
     const eleventh = await api("POST", "/api/announcements", { as: "districtAdmin", body: { senderOrgId: V, audience: "followers", title: "One more", body: "Short note" } });
