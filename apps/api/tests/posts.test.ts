@@ -74,28 +74,54 @@ describe("Posts and feeds: who sees what (#41, #57)", () => {
     assert.equal((await api("GET", `/api/posts/${P.noClubInReview}`, { as: "player" })).status, 404);
   });
 
-  it("posting rules (#41): club members, creators, association staff publish; no-club users go to review", async () => {
+  it("posting rules (PRD §7): current/past club members and staff publish at once; nobody else posts", async () => {
     const post = (as: TestUserKey) => api("POST", "/api/posts", { as, body: { content: `Hello from ${as}` } });
-    for (const who of ["player", "creator", "districtAdmin", "moderator"] as const) {
+    // Current member, past member (left Vellore Hoopers), Basky staff → published immediately, no review case
+    for (const who of ["player", "normalUser", "moderator", "baskyTeam"] as const) {
       const res = await post(who);
       assert.equal(res.status, 201, `${who}: ${JSON.stringify(res.body)}`);
       assert.equal(res.body.moderationStatus, "published", who);
+      assert.equal(await prisma.moderationCase.count({ where: { targetId: res.body.id } }), 0, who);
     }
-    const noClub = await post("normalUser");
-    assert.equal(noClub.body.moderationStatus, "in_review");
-    const kase = await prisma.moderationCase.findFirst({ where: { targetId: noClub.body.id } });
-    assert.equal(kase?.source, "no_club_review");
+    // No club: Creator badge alone, association owner (personal post), pending join request,
+    // member of a club that isn't approved yet → 403
+    for (const who of ["creator", "districtAdmin", "associationMember", "joiner", "pendingClubOwner"] as const) {
+      const res = await post(who);
+      assert.equal(res.status, 403, `${who}: ${JSON.stringify(res.body)}`);
+      assert.equal(res.body.error.code, "club_members_only", who);
+    }
     // Not allowed at all: visitor, under-18 awaiting parent
     assert.equal((await api("POST", "/api/posts", { body: { content: "hi" } })).status, 401);
     assert.equal((await post("minorAwaitingParent")).body.error.code, "awaiting_parent");
   });
 
+  it("a removed member is not a past member; a past member can't post for the club they left", async () => {
+    const m = await prisma.clubMembership.findFirstOrThrow({ where: { userId: uid("normalUser"), clubId: H } });
+    await prisma.clubMembership.update({ where: { id: m.id }, data: { status: "removed" } });
+    try {
+      const res = await api("POST", "/api/posts", { as: "normalUser", body: { content: "after removal" } });
+      assert.equal(res.body.error?.code, "club_members_only");
+    } finally {
+      await prisma.clubMembership.update({ where: { id: m.id }, data: { status: m.status } });
+    }
+    // Left the club: personal/public posts only, not posts for that club
+    for (const visibility of ["public", "club_page", "members"] as const) {
+      const res = await api("POST", "/api/posts", { as: "normalUser", body: { content: "for my old club", clubId: H, visibility } });
+      assert.equal(res.body.error?.code, "members_only", visibility);
+    }
+  });
+
   it("district is filled automatically: club post → club's district, else home district (rule 10)", async () => {
-    const own = await api("POST", "/api/posts", { as: "tnbaAdmin", body: { content: "From Chennai" } });
-    assert.equal(own.body.districtCode, "TN-CHENNAI");
-    const club = await api("POST", "/api/posts", { as: "player", body: { content: "Club post", clubId: H } });
-    assert.equal(club.body.districtCode, "TN-VELLORE");
-    assert.equal(club.body.club.name, "Vellore Hoopers");
+    await prisma.user.update({ where: { id: uid("player") }, data: { homeDistrictCode: "TN-CHENNAI" } });
+    try {
+      const own = await api("POST", "/api/posts", { as: "player", body: { content: "From Chennai" } });
+      assert.equal(own.body.districtCode, "TN-CHENNAI");
+      const club = await api("POST", "/api/posts", { as: "player", body: { content: "Club post", clubId: H } });
+      assert.equal(club.body.districtCode, "TN-VELLORE");
+      assert.equal(club.body.club.name, "Vellore Hoopers");
+    } finally {
+      await prisma.user.update({ where: { id: uid("player") }, data: { homeDistrictCode: "TN-VELLORE" } });
+    }
   });
 
   it("only members can post for a club; club-page/members posts need a club", async () => {
@@ -136,11 +162,12 @@ describe("Posts and feeds: who sees what (#41, #57)", () => {
     assert.equal(edit.body.content, "Sunday shootaround (edited)");
     assert.equal(edit.body.moderationStatus, "published");
 
-    // A no-club user's edit goes back to review
-    const p = await api("POST", "/api/posts", { as: "joiner", body: { content: "first" } });
-    await prisma.post.update({ where: { id: p.body.id }, data: { moderationStatus: "published" } });
-    const e = await api("PATCH", `/api/posts/${p.body.id}`, { as: "joiner", body: { content: "changed after review" } });
-    assert.equal(e.body.moderationStatus, "in_review");
+    // Editing never changes the post's state: a post a moderator hid stays hidden (no way around a hide)
+    const p = await api("POST", "/api/posts", { as: "coach", body: { content: "first" } });
+    await prisma.post.update({ where: { id: p.body.id }, data: { moderationStatus: "hidden" } });
+    const e = await api("PATCH", `/api/posts/${p.body.id}`, { as: "coach", body: { content: "changed after the hide" } });
+    assert.equal(e.body.moderationStatus, "hidden");
+    assert.equal(e.body.content, "changed after the hide");
 
     assert.equal((await api("DELETE", `/api/posts/${P.juniorPost}`, { as: "captain" })).status, 403);
     assert.equal((await api("DELETE", `/api/posts/${P.juniorPost}`, { as: "moderator" })).status, 200);

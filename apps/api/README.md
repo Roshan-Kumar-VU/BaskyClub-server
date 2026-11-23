@@ -137,7 +137,7 @@ Send the login token as `Authorization: Bearer <token>`.
 | Method | Address | Who | Does |
 |---|---|---|---|
 | GET | /api/feed?scope=all\|district\|following&districtCode=&cursor= | anyone (following: logged in) | Feed, 20 at a time; `nextCursor` loads more |
-| POST | /api/posts | active account | `{ content, clubId?, visibility, images: [{url}], youtubeUrl? }` |
+| POST | /api/posts | club member (current or past) or staff | `{ content, clubId?, organizationId?, visibility, images: [{url}], youtubeUrl? }` |
 | GET / PATCH / DELETE | /api/posts/:id | anyone / author / author or moderator | Read, edit text, delete |
 | POST | /api/posts/:id/share | logged in | Count a share, get the link |
 | POST / DELETE | /api/posts/:id/like | active account | Like / unlike → `{ liked, likeCount }` |
@@ -153,7 +153,7 @@ Send the login token as `Authorization: Bearer <token>`.
 | POST | /api/moderation/cases/:id/decide | moderator, Basky team | `{ decision: approve / remove, note? }` |
 
 **Who sees a post:** `public` — everywhere · `club_page` — club page, author's profile, and the Following feed of the club's members/followers · `members` — active members of that club only. Posts waiting for review are seen only by their author and moderators.
-**Who publishes without review (#41):** members of an approved club, association office holders, Creators, BaskyCLub staff. Everyone else → review queue.
+**Who can post (Phase 1 PRD §7):** current or past members of an approved club/academy, and BaskyCLub staff. Posts for a club: its active members and club staff only. Posts for an association: its owner/admins (or the Basky team). Everyone else gets 403 `club_members_only`. Posts publish immediately; reports still go to the moderators' queue.
 **Limits:** 10 posts an hour, 5 comments a minute, 10 photos + 1 YouTube link per post.
 
 ## API — Round 3 (associations, alerts, admin, map, photos)

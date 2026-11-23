@@ -115,16 +115,22 @@ describe("Associations: page, team, office bearers, Media / Legacy, official pos
     assert.equal((await api("DELETE", `/api/legacy/${add.body.id}`, { as: "districtAdmin" })).status, 200);
   });
 
-  it("official posts: the association team posts for it; others can't; they show on the association page", async () => {
-    const post = await api("POST", "/api/posts", { as: "associationMember", body: { organizationId: V, content: "Coaching clinic on Sunday" } });
+  it("official posts: the association's owner/admins post for it; members (read-only) and others can't", async () => {
+    const post = await api("POST", "/api/posts", { as: "districtAdmin", body: { organizationId: V, content: "Coaching clinic on Sunday" } });
     assert.equal(post.status, 201, JSON.stringify(post.body));
     assert.equal(post.body.moderationStatus, "published");
     assert.equal(post.body.districtCode, "TN-VELLORE");
     assert.equal(post.body.organization.shortName, "Vellore DBA");
-    assert.equal((await api("POST", "/api/posts", { as: "player", body: { organizationId: V, content: "x" } })).body.error.code, "association_members_only");
+    for (const who of ["associationMember", "player", "tnbaAdmin"] as const) {
+      const res = await api("POST", "/api/posts", { as: who, body: { organizationId: V, content: "x" } });
+      assert.equal(res.body.error?.code, "association_staff_only", who);
+    }
+    // The Basky team can post for any association
+    const fromTeam = await api("POST", "/api/posts", { as: "baskyTeam", body: { organizationId: V, content: "From the Basky team" } });
+    assert.equal(fromTeam.status, 201);
     assert.equal((await api("POST", "/api/posts", { as: "districtAdmin", body: { organizationId: V, content: "x", visibility: "club_page" } })).body.error.code, "official_public");
     const page = await api("GET", `/api/associations/${V}/posts`);
-    assert.deepEqual(page.body.posts.map((p: { id: string }) => p.id), [post.body.id, TEST_POSTS.officialCard]);
+    assert.deepEqual(page.body.posts.map((p: { id: string }) => p.id), [fromTeam.body.id, post.body.id, TEST_POSTS.officialCard]);
   });
 
   it("coverage: only the Basky team sets which districts an association covers", async () => {

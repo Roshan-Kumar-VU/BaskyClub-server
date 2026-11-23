@@ -8,8 +8,9 @@
 // Posts that are not "published" (in_review / hidden / removed) are seen only by their author
 // and moderators. Deleted posts are seen by nobody.
 //
-// Posting rules (#41): club/academy members and BaskyCLub staff → published straight away
-// (AI check comes later); people without a club → "in_review" until a moderator approves.
+// Who can post (Phase 1 PRD §2, §7): current or past members of a club/academy, BaskyCLub staff,
+// and association owners/admins posting for their association. Posts publish immediately
+// (no review step); reports still reach the moderators' queue. Everyone else gets 403.
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../db";
@@ -59,24 +60,19 @@ export const pageQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
-// ---- Who can post without review ----------------------------------------------------
+// ---- Who can post a personal post ------------------------------------------------------
 
 /**
- * Trusted to publish straight away (#41): BaskyCLub staff, members of an approved club/academy,
- * association office holders (organization_members), and verified Creators (#73).
- * Everyone else's posts wait for review.
+ * BaskyCLub staff, or anyone who is or was a member of an approved club/academy ("past members can
+ * still post"). A removed or rejected membership doesn't count. The Creator badge alone doesn't either.
  */
-async function isTrustedPoster(viewer: Viewer): Promise<boolean> {
+async function canPostPersonally(viewer: Viewer): Promise<boolean> {
   if (viewer.platformRoles.size > 0) return true;
-  const [membership, orgRole, creator] = await Promise.all([
-    prisma.clubMembership.findFirst({
-      where: { userId: viewer.id, status: "active", club: { status: "approved", deletedAt: null } },
-      select: { id: true },
-    }),
-    prisma.organizationMember.findFirst({ where: { userId: viewer.id, toAt: null }, select: { id: true } }),
-    prisma.verificationBadge.findFirst({ where: { userId: viewer.id, badge: "creator", status: "active" }, select: { id: true } }),
-  ]);
-  return !!(membership || orgRole || creator);
+  const membership = await prisma.clubMembership.findFirst({
+    where: { userId: viewer.id, status: { in: ["active", "left"] }, club: { status: "approved", deletedAt: null } },
+    select: { id: true },
+  });
+  return !!membership;
 }
 
 // ---- Post cards (what the app shows) ------------------------------------------------------
@@ -220,9 +216,10 @@ export async function createPost(viewer: Viewer, input: z.infer<typeof createPos
     if (input.visibility !== "public") throw badRequest("official_public", "Official association posts are public.");
     const org = await prisma.organization.findFirst({ where: { id: input.organizationId, pageStatus: { in: ["published", "claimed"] } } });
     if (!org) throw notFound("Association");
+    // Association members are read-only (PRD §2): only owners/admins (or the Basky team) post for it.
     const powers = await getOrgPowers(viewer, org.id);
-    if (!powers.isMember && !isBaskyTeam(viewer)) {
-      throw forbidden("association_members_only", "Only the association's own team can post for it.");
+    if (!powers.canManage) {
+      throw forbidden("association_staff_only", "Only the association's owner or admins can post for it.");
     }
     // District association → the author's district if covered, else the first district it covers
     if (org.level === "district") {
@@ -242,36 +239,31 @@ export async function createPost(viewer: Viewer, input: z.infer<typeof createPos
     if (input.visibility !== "public") {
       throw badRequest("club_required", "Choose a club for club-page or members-only posts.");
     }
+    if (!(await canPostPersonally(viewer))) {
+      throw forbidden("club_members_only", "Join a club to post. Posting is open to club and academy members.");
+    }
     const me = await prisma.user.findUniqueOrThrow({ where: { id: viewer.id }, select: { homeDistrictCode: true } });
     districtCode = me.homeDistrictCode;
   }
 
-  const trusted = await isTrustedPoster(viewer);
   const media = [
     ...input.images.map((img, i) => ({ mediaType: "image", url: img.url, width: img.width, height: img.height, sortOrder: i })),
     ...(youtube ? [{ mediaType: "youtube", url: youtube, sortOrder: input.images.length }] : []),
   ];
 
-  const post = await prisma.$transaction(async (tx) => {
-    const created = await tx.post.create({
-      data: {
-        authorId: viewer.id,
-        clubId: input.clubId,
-        organizationId: input.organizationId,
-        districtCode,
-        visibility: input.visibility,
-        content: input.content || null,
-        moderationStatus: trusted ? "published" : "in_review",
-        media: { create: media },
-      },
-    });
-    if (!trusted) {
-      await tx.moderationCase.create({ data: { targetType: "post", targetId: created.id, source: "no_club_review" } });
-    }
-    return created;
+  const post = await prisma.post.create({
+    data: {
+      authorId: viewer.id,
+      clubId: input.clubId,
+      organizationId: input.organizationId,
+      districtCode,
+      visibility: input.visibility,
+      content: input.content || null,
+      moderationStatus: "published",
+      media: { create: media },
+    },
   });
 
-  // TODO(ai-moderation): run the AI check on published posts and open a case if flagged.
   const [card] = await toCards(viewer, [await prisma.post.findUniqueOrThrow({ where: { id: post.id }, select: postCardSelect })]);
   return card;
 }
@@ -283,17 +275,8 @@ export async function updatePost(viewer: Viewer, postId: string, input: z.infer<
   if (post.authorId !== viewer.id) throw forbidden("author_only", "Only the author can edit this post.");
   if (post.moderationStatus === "removed") throw forbidden("removed", "This post was removed by a moderator.");
 
-  // An untrusted author's edit goes back to review, so a reviewed post can't be swapped for something else.
-  const trusted = await isTrustedPoster(viewer);
-  await prisma.$transaction(async (tx) => {
-    await tx.post.update({
-      where: { id: post.id },
-      data: { content: input.content, ...(trusted ? {} : { moderationStatus: "in_review" }) },
-    });
-    if (!trusted && post.moderationStatus === "published") {
-      await tx.moderationCase.create({ data: { targetType: "post", targetId: post.id, source: "no_club_review", reason: "edited" } });
-    }
-  });
+  // No review step in Phase 1: an edit keeps the post's current state (a hidden post stays hidden).
+  await prisma.post.update({ where: { id: post.id }, data: { content: input.content } });
   return getPost(viewer, post.id);
 }
 

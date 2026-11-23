@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { pushOutbox } from "../src/server/lib/push";
-import { api, prisma, resetDatabase } from "./helpers";
+import { api, prisma, resetDatabase, uid } from "./helpers";
 
 const NISHA = "0000000a-0000-4000-8000-000000000015"; // normalUser, adult, no club
 
@@ -17,9 +17,9 @@ describe("Request a Creator badge", () => {
     assert.equal(me.body.creatorBadge.status, "requested");
     // asking twice
     assert.equal((await api("POST", "/api/badges/creator", { as: "normalUser" })).body.error.code, "already_requested");
-    // a request is not a badge: her posts still go to review
-    const post = await api("POST", "/api/posts", { as: "normalUser", body: { content: "Waiting for my badge", visibility: "public", images: [] } });
-    assert.equal(post.body.moderationStatus, "in_review");
+    // a request is not a badge
+    const badges = await prisma.verificationBadge.count({ where: { userId: uid("normalUser"), badge: "creator", status: "active" } });
+    assert.equal(badges, 0);
   });
 
   it("only the Basky team sees the queue, with followers and posts to judge by", async () => {
