@@ -87,7 +87,7 @@ export default function Signup() {
     <AuthShell title="Create your account" subtitle="One profile for every club, match and tournament.">
       <Field label="Full name" value={f.name} onChangeText={set('name')} maxLength={LIMITS.personName.max} placeholder="As on your ID card" autoComplete="name" />
       <Field label="Email" value={f.email} onChangeText={set('email')} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" />
-      <Field label="Mobile number" value={f.phone} onChangeText={set('phone')} placeholder="98765 43210" keyboardType="phone-pad" hint="Friends add you to match rooms with this number." />
+      <Field label="Mobile number" value={f.phone} onChangeText={set('phone')} placeholder="98765 43210" keyboardType="phone-pad" hint="To log in and find your account. Never shown to other people." />
       <Field label="Date of birth" value={f.dob} onChangeText={set('dob')} placeholder="DD / MM / YYYY" keyboardType="number-pad" hint="Decides age categories like U-16 and U-18." />
       {minor && (
         <View style={{ gap: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: c.officialSoft }}>

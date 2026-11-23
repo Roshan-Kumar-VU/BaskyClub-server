@@ -31,7 +31,7 @@ export default function Profile() {
           <View style={{ alignItems: 'center', gap: space.md }}>
             <Wordmark size={30} />
             <Text variant="title" style={{ textAlign: 'center' }}>Your basketball profile</Text>
-            <Text color="textSecondary" style={{ textAlign: 'center' }}>Log in to post, join clubs, follow players and score match rooms.</Text>
+            <Text color="textSecondary" style={{ textAlign: 'center' }}>Log in to post, join clubs and follow players, clubs and associations.</Text>
           </View>
           <Button label="Log in" onPress={() => router.push('/auth/login')} />
           <Button label="Create account" kind="secondary" onPress={() => router.push('/auth/signup')} />
