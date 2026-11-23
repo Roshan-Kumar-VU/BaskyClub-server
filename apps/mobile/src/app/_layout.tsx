@@ -83,7 +83,6 @@ function App() {
           <Stack.Screen name="settings/creator" options={{ title: 'Creator badge' }} />
           <Stack.Screen name="report" options={{ title: 'Report' }} />
           <Stack.Screen name="announce" options={{ title: 'Send an alert' }} />
-          <Stack.Screen name="map" options={{ title: 'Map' }} />
           <Stack.Screen name="club/new" options={{ title: 'Register a club' }} />
           <Stack.Screen name="club/[id]/manage" options={{ title: 'Manage club' }} />
           <Stack.Screen name="club/[id]/members" options={{ title: 'People and roles' }} />

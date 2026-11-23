@@ -81,7 +81,11 @@ export async function map(query: z.infer<typeof mapQuery>) {
   const [clubs, courts] = await Promise.all([
     prisma.club.findMany({
       where: { status: "approved", deletedAt: null, latitude: { not: null }, longitude: { not: null }, ...district, ...(area as Prisma.ClubWhereInput) },
-      select: { id: true, name: true, kind: true, logoUrl: true, latitude: true, longitude: true, districtCode: true },
+      select: {
+        id: true, name: true, kind: true, logoUrl: true, latitude: true, longitude: true, districtCode: true,
+        // practice hours on the pin (PRD §5)
+        timings: { orderBy: { dayOfWeek: "asc" }, select: { dayOfWeek: true, isFullDay: true, morningStart: true, morningEnd: true, eveningStart: true, eveningEnd: true } },
+      },
       take: 500,
     }),
     prisma.court.findMany({

@@ -4,6 +4,7 @@
  * the data it touches. Rules live on the server (API_REFERENCE.md) — screens only
  * show what the server says this person can do.
  */
+import type { PracticeTime } from '@baskyclub/shared';
 import { del, get, patch, post } from './api';
 import { invalidate, read } from './cache';
 
@@ -289,7 +290,8 @@ export async function createOrg(input: { name: string; shortName?: string; level
 export const getChangeLog = () => read('admin:log', async () => (await get<{ changes: any[] }>('/api/admin/change-log?limit=40')).changes, [] as any[]);
 
 // ── Map ───────────────────────────────────────────────────────────────────
-export type MapPin = { id: string; name: string; latitude: number; longitude: number; districtCode: string; distanceKm: number | null; kind?: string; indoor?: boolean; address?: string | null };
+/** A club or court on the map. Clubs carry their weekly practice hours (PRD §5). */
+export type MapPin = { id: string; name: string; latitude: number; longitude: number; districtCode: string; distanceKm: number | null; kind?: string; indoor?: boolean; address?: string | null; timings?: PracticeTime[] };
 
 export const getMap = (params: { districtCode?: string | null; lat?: number; lng?: number; radiusKm?: number }) => {
   const query = params.lat !== undefined ? q({ lat: params.lat, lng: params.lng, radiusKm: params.radiusKm ?? 50 }) : q({ districtCode: params.districtCode ?? 'TN-VELLORE' });

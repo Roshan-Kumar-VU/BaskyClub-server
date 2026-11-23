@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ageOn, fits, isMinorOn, LIMITS, normalizeYouTubeUrl, youtubeId, youtubeThumbnail } from "../src";
+import { ageOn, fits, isMinorOn, LIMITS, normalizeYouTubeUrl, practiceHours, type PracticeTime, youtubeId, youtubeThumbnail } from "../src";
 
 const ID = "dQw4w9WgXcQ";
 
@@ -106,5 +106,21 @@ describe("Length rules", () => {
     assert.equal(fits("       a", LIMITS.password), false);
     assert.equal(fits("x".repeat(72), LIMITS.password, false), true);
     assert.equal(fits("x".repeat(73), LIMITS.password, false), false);
+  });
+});
+
+describe("Practice hours", () => {
+  const t = (dayOfWeek: number, p: Partial<PracticeTime> = {}): PracticeTime => ({ dayOfWeek, isFullDay: false, morningStart: null, morningEnd: null, eveningStart: null, eveningEnd: null, ...p });
+
+  it("one line per day, Monday first, morning then evening", () => {
+    assert.deepEqual(
+      practiceHours([t(6, { isFullDay: true }), t(2, { morningStart: "06:00", morningEnd: "07:30", eveningStart: "18:00", eveningEnd: "19:30" }), t(7, { eveningStart: "17:00", eveningEnd: "19:00" })]),
+      ["Tue 06:00–07:30, 18:00–19:30", "Sat all day", "Sun 17:00–19:00"],
+    );
+  });
+
+  it("half-filled slots, empty days and bad day numbers", () => {
+    assert.deepEqual(practiceHours([t(1, { morningStart: "06:00" }), t(3, { eveningEnd: "20:00" }), t(4), t(0, { isFullDay: true }), t(8, { isFullDay: true })]), ["Mon from 06:00", "Wed until 20:00"]);
+    assert.deepEqual(practiceHours([]), []);
   });
 });

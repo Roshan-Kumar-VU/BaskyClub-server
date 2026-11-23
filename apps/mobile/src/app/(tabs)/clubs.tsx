@@ -9,10 +9,12 @@ import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { Avatar } from '@/components/avatar';
 import { Chips } from '@/components/chips';
 import { ClubRow } from '@/components/club-row';
+import { ClubsMap } from '@/components/clubs-map';
 import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
 import { PressableScale } from '@/components/pressable-scale';
 import { ScreenHeader } from '@/components/screen-header';
+import { Segmented } from '@/components/segmented';
 import { Text } from '@/components/text';
 import { type ClubFilter, getClubs, getMyClubs } from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
@@ -27,11 +29,13 @@ const filters: { value: ClubFilter; label: string }[] = [
   { value: 'academy', label: 'Academies' },
 ];
 
+/** Clubs tab (PRD §3, §5): a List / Map switch; the list has search and filters. */
 export default function Clubs() {
   useStoreVersion();
   const { c } = useTheme();
   const s = useScope();
   const { user } = useSession();
+  const [view, setView] = useState<'list' | 'map'>('list');
   const [filter, setFilter] = useState<ClubFilter>('all');
   const [q, setQ] = useState('');
   const mine = getMyClubs(user?.userId);
@@ -67,9 +71,6 @@ export default function Clubs() {
         scoped
         right={
           <>
-            <Pressable accessibilityRole="button" accessibilityLabel="Map" hitSlop={10} onPress={() => router.push('/map')}>
-              <Icon ios="map" android="map" size={23} color={c.text} />
-            </Pressable>
             {!!user && !user.isMinor && (
               <Pressable accessibilityRole="button" accessibilityLabel="Register a club" hitSlop={10} onPress={() => router.push('/club/new')}>
                 <Icon ios="plus.circle" android="add_circle" size={24} color={c.text} />
@@ -78,25 +79,38 @@ export default function Clubs() {
           </>
         }>
         <View style={{ paddingHorizontal: space.lg, paddingTop: space.md }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, height: 40, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: c.fill }}>
-            <Icon ios="magnifyingglass" android="search" size={16} color={c.textMuted} />
-            <TextInput value={q} onChangeText={setQ} placeholder="Search clubs and academies" placeholderTextColor={c.textMuted} selectionColor={c.accent} style={{ flex: 1, color: c.text, fontFamily: fonts.bodyMedium, fontSize: 15 }} />
-          </View>
+          <Segmented value={view} onChange={setView} options={[{ value: 'list', label: 'List' }, { value: 'map', label: 'Map' }]} />
         </View>
-        <View style={{ paddingVertical: space.md }}>
-          <Chips options={filters} value={filter} onChange={setFilter} />
-        </View>
+        {view === 'list' ? (
+          <>
+            <View style={{ paddingHorizontal: space.lg, paddingTop: space.md }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, height: 40, paddingHorizontal: space.md, borderRadius: radius.md, backgroundColor: c.fill }}>
+                <Icon ios="magnifyingglass" android="search" size={16} color={c.textMuted} />
+                <TextInput value={q} onChangeText={setQ} placeholder="Search clubs and academies" placeholderTextColor={c.textMuted} selectionColor={c.accent} style={{ flex: 1, color: c.text, fontFamily: fonts.bodyMedium, fontSize: 15 }} />
+              </View>
+            </View>
+            <View style={{ paddingVertical: space.md }}>
+              <Chips options={filters} value={filter} onChange={setFilter} />
+            </View>
+          </>
+        ) : (
+          <View style={{ height: space.md }} />
+        )}
       </ScreenHeader>
-      <FlashList
-        data={data}
-        keyExtractor={(club) => club.clubId}
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardDismissMode="on-drag"
-        ListHeaderComponent={listHeader}
-        ItemSeparatorComponent={() => <View style={{ height: 0.5, marginLeft: 82, backgroundColor: c.line }} />}
-        renderItem={({ item }) => <ClubRow club={item} />}
-        ListEmptyComponent={<EmptyState ios="shield" android="shield" title="No clubs found" body={q ? `Nothing matches “${q}”.` : 'Try All India, or another filter.'} />}
-      />
+      {view === 'map' ? (
+        <ClubsMap />
+      ) : (
+        <FlashList
+          data={data}
+          keyExtractor={(club) => club.clubId}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardDismissMode="on-drag"
+          ListHeaderComponent={listHeader}
+          ItemSeparatorComponent={() => <View style={{ height: 0.5, marginLeft: 82, backgroundColor: c.line }} />}
+          renderItem={({ item }) => <ClubRow club={item} />}
+          ListEmptyComponent={<EmptyState ios="shield" android="shield" title="No clubs found" body={q ? `Nothing matches “${q}”.` : 'Try All India, or another filter.'} />}
+        />
+      )}
     </View>
   );
 }

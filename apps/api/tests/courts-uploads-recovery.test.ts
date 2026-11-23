@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
+import { practiceHours, type PracticeTime } from "@baskyclub/shared";
 import { emailOutbox } from "../src/server/lib/mailer";
 import { api, prisma, resetDatabase, TEST_CLUBS, TEST_PASSWORD, TEST_USERS } from "./helpers";
 
@@ -70,6 +71,14 @@ describe("Map, courts and practice hours", () => {
     const backwards = await api("PUT", `/api/clubs/${H}/timings`, { as: "clubAdmin", body: { timings: [{ dayOfWeek: 1, eveningStart: "19:00", eveningEnd: "18:00" }] } });
     assert.equal(backwards.body.error.code, "bad_time");
     assert.equal((await api("PUT", `/api/clubs/${H}/timings`, { as: "clubAdmin", body: { timings: [{ dayOfWeek: 1, morningStart: "6am" }] } })).status, 400);
+  });
+
+  it("the map shows each club's practice hours on its pin (PRD §5)", async () => {
+    const pins = (await api("GET", "/api/map?districtCode=TN-VELLORE")).body.clubs as { id: string; timings: PracticeTime[] }[];
+    const hoopers = pins.find((p) => p.id === H)!;
+    assert.deepEqual(practiceHours(hoopers.timings), ["Tue 06:00–07:30", "Sat all day"]);
+    const other = pins.find((p) => p.id !== H)!;
+    assert.ok(Array.isArray(other.timings));
   });
 });
 

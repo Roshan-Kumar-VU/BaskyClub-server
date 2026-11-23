@@ -1,3 +1,4 @@
+import { practiceHours } from '@baskyclub/shared';
 import { router } from 'expo-router';
 import MapView, { Callout, Marker } from 'react-native-maps';
 
@@ -17,6 +18,9 @@ export function CourtMap({ clubs, courts, center }: { clubs: MapPin[]; courts: M
         <Marker key={`c-${c.id}`} coordinate={{ latitude: c.latitude, longitude: c.longitude }} pinColor={palette.ball} title={c.name} description={c.kind}>
           <Callout onPress={() => router.push({ pathname: '/club/[id]', params: { id: c.id } })}>
             <Text variant="bodyStrong">{c.name}</Text>
+            {practiceHours(c.timings ?? []).map((line) => (
+              <Text key={line} variant="caption">{line}</Text>
+            ))}
             <Text variant="caption">Open club page</Text>
           </Callout>
         </Marker>

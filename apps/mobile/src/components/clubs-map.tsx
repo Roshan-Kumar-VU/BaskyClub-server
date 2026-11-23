@@ -1,16 +1,16 @@
 'use no memo';
 
-import { fits, LIMITS } from '@baskyclub/shared';
+import { fits, LIMITS, practiceHours } from '@baskyclub/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 
-import { Tag } from '@/components/badge';
-import { Button } from '@/components/button';
-import { CourtMap } from '@/components/court-map';
-import { Field } from '@/components/field';
-import { Card, Choice, Row, Toggle } from '@/components/form';
-import { Text } from '@/components/text';
+import { Tag } from './badge';
+import { Button } from './button';
+import { CourtMap } from './court-map';
+import { Field } from './field';
+import { Card, Row, Toggle } from './form';
+import { Text } from './text';
 import { getMap, suggestCourt } from '@/data/manage';
 import { useStoreVersion } from '@/data/store';
 import { notify } from '@/lib/notify';
@@ -18,15 +18,17 @@ import { useScope } from '@/lib/scope';
 import { errorMessage, useSession } from '@/lib/session';
 import { space, useTheme } from '@/theme';
 
-/** Clubs-tab map: approved clubs and courts in your district (or All India: Vellore area by default). */
-export default function MapScreen() {
+/**
+ * The Clubs tab's Map view (PRD §3, §5): approved clubs and courts in your district (All India: the
+ * Vellore area for now), each club with its practice hours, and a way to suggest a missing court.
+ */
+export function ClubsMap() {
   useStoreVersion();
   const { c } = useTheme();
   const s = useScope();
   const { user, requireLogin } = useSession();
   const district = s.districtCode ?? 'TN-VELLORE';
   const data = getMap({ districtCode: district });
-  const [view, setView] = useState<'map' | 'list'>('map');
   const [adding, setAdding] = useState(false);
   const [court, setCourt] = useState({ name: '', address: '', lat: '', lng: '', indoor: false });
 
@@ -46,13 +48,18 @@ export default function MapScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      <View style={{ padding: space.md }}>
-        <Choice value={view} onChange={setView} options={[{ value: 'map', label: 'Map' }, { value: 'list', label: `List (${pins.length})` }]} />
-      </View>
-      {view === 'map' && <View style={Platform.OS === 'web' ? undefined : { height: 360 }}><CourtMap clubs={data.clubs} courts={data.courts} center={center} /></View>}
+      <View style={Platform.OS === 'web' ? undefined : { height: 360 }}><CourtMap clubs={data.clubs} courts={data.courts} center={center} /></View>
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: space.xxl * 2 }}>
         <Card title={`Clubs (${data.clubs.length})`}>
-          {data.clubs.map((x, i) => <Row key={x.id} first={i === 0} label={x.name} sub={x.kind} onPress={() => router.push({ pathname: '/club/[id]', params: { id: x.id } })} />)}
+          {data.clubs.map((x, i) => (
+            <Row
+              key={x.id}
+              first={i === 0}
+              label={x.name}
+              sub={[x.kind, ...practiceHours(x.timings ?? [])].filter(Boolean).join(' · ') || undefined}
+              onPress={() => router.push({ pathname: '/club/[id]', params: { id: x.id } })}
+            />
+          ))}
         </Card>
         <Card title={`Courts (${data.courts.length})`}>
           {data.courts.map((x, i) => <Row key={x.id} first={i === 0} label={x.name} sub={x.address ?? ''} right={<Tag label={x.indoor ? 'Indoor' : 'Outdoor'} />} />)}
