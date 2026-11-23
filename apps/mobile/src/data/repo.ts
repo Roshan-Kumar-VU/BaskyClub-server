@@ -22,6 +22,9 @@ import type {
 
 import {
   youtubeThumbnail,
+  type Alert,
+  type AlertPage,
+  type Audience,
   type ClubCard,
   type ClubMember,
   type Comment,
@@ -669,32 +672,38 @@ export async function answerJoinRequest(membershipId: string, accept: boolean, p
   invalidate('club:', 'clubs:');
 }
 
-// ── Announcements (#65, #75) ──────────────────────────────────────────────
+// ── Alerts: announcements (#65, #75) and replies to your comments (PRD §6) ──
 export interface AlertView {
   id: string;
+  kind: Alert['type'];
   title: string;
   body: string;
-  audience: 'club_admins_in_area' | 'affiliated_members' | 'district_users' | 'followers' | 'club_members' | 'everyone';
-  feedPostId?: string;
+  /** Announcements only. */
+  audience?: Audience;
+  /** The post a tap opens. */
+  postId?: string;
   createdAt: string;
   senderName: string;
-  senderKind: 'association' | 'club' | 'basky';
+  senderKind: 'association' | 'club' | 'basky' | 'user';
 }
 
 export function getAlerts(userId?: string | null): AlertView[] {
   if (!userId) return [];
   return read('alerts', async () => {
-    const r = await get<{ alerts: any[] }>('/api/alerts?limit=50');
-    return r.alerts.map((a) => ({
-      id: a.id,
-      title: a.title,
-      body: a.body,
-      audience: a.audience,
-      feedPostId: opt(a.feedPostId),
-      createdAt: a.sentAt,
-      senderName: a.from.type === 'basky' ? 'BaskyCLub team' : a.from.name,
-      senderKind: a.from.type === 'organization' ? 'association' : a.from.type,
-    })) as AlertView[];
+    const r = await get<AlertPage>('/api/alerts?limit=50');
+    return r.alerts.map(
+      (a): AlertView => ({
+        id: a.id,
+        kind: a.type,
+        title: a.title,
+        body: a.body,
+        audience: opt(a.audience),
+        postId: opt(a.postId),
+        createdAt: a.sentAt,
+        senderName: a.from.type === 'basky' ? 'BaskyCLub team' : a.from.name,
+        senderKind: a.from.type === 'organization' ? 'association' : a.from.type,
+      }),
+    );
   }, [] as AlertView[]);
 }
 

@@ -6,7 +6,11 @@ import { api, prisma, resetDatabase, TEST_ANNOUNCEMENTS, TEST_CLUBS, TEST_ORGS, 
 const A = TEST_ANNOUNCEMENTS;
 const V = TEST_ORGS.velloreDba;
 const H = TEST_CLUBS.velloreHoopers;
-const inbox = async (who: TestUserKey) => (await api("GET", "/api/alerts", { as: who })).body.alerts.map((a: { id: string }) => a.id);
+/** Announcement ids in someone's inbox (reply alerts are tested in reply-alerts.test.ts). */
+const inbox = async (who: TestUserKey) =>
+  (await api("GET", "/api/alerts", { as: who })).body.alerts
+    .filter((a: { type: string }) => a.type === "announcement")
+    .map((a: { id: string }) => a.id);
 const pushedTo = (from: number) => pushOutbox.slice(from).map((m) => m.to).sort();
 
 describe("Announcements and the Alerts inbox (#65, #75)", () => {
@@ -20,7 +24,8 @@ describe("Announcements and the Alerts inbox (#65, #75)", () => {
     // TNBA secretary: no club in Vellore
     assert.deepEqual(await inbox("tnbaAdmin"), [A.baskyToEveryone]);
     assert.equal((await api("GET", "/api/alerts")).status, 401);
-    const first = (await api("GET", "/api/alerts", { as: "player" })).body.alerts[0];
+    const first = (await api("GET", "/api/alerts", { as: "player" })).body.alerts.find((a: { type: string }) => a.type === "announcement");
+    assert.equal(first.postId, TEST_POSTS.officialCard); // where a tap goes
     assert.deepEqual(first.from, { type: "organization", id: V, name: "Vellore District Basketball Association", shortName: "Vellore DBA", logoUrl: null });
     assert.equal(first.feedPostId, TEST_POSTS.officialCard);
   });

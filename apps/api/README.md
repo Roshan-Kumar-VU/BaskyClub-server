@@ -175,7 +175,7 @@ Send the login token as `Authorization: Bearer <token>`.
 | POST | /api/affiliations/:id/decide | the other side's staff | `{ decision: approve / reject, validUntil? }` (default 31 March) |
 | POST | /api/affiliations/:id/end | either side | End / withdraw |
 | POST | /api/announcements | association team / club owner+admin / Basky team | `{ senderOrgId? \| senderClubId?, audience, districtCode?, title, body, showInFeed }` |
-| GET | /api/alerts?box=inbox\|sent | logged in | Alerts inbox (bell) |
+| GET | /api/alerts?box=inbox\|sent | logged in | Alerts inbox (bell): announcements + replies to your comments (`type`), newest first, `nextCursor`; tap opens `postId` |
 | POST / DELETE | /api/devices | logged in | Register phone `{ token, platform }` / remove `?token=` |
 | GET | /api/map?lat=&lng=&radiusKm= (or ?districtCode=) | anyone | Clubs + courts near you, nearest first |
 | POST / GET / PATCH / DELETE | /api/courts, /api/courts/:id | logged in / see service | Suggest and manage courts |

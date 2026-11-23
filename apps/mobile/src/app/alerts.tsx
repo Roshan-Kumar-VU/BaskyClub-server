@@ -24,25 +24,25 @@ const audienceLabel = {
   everyone: 'Everyone on BaskyCLub',
 } as const;
 
-/** Alerts inbox: announcements from associations, clubs and the BaskyCLub team (#75). No likes or comments. */
+/** Alerts inbox: announcements from associations, clubs and the BaskyCLub team (#75), and replies to your comments. */
 export default function Alerts() {
   useStoreVersion();
   const { c } = useTheme();
   const { user } = useSession();
   const alerts = getAlerts(user?.userId);
-  if (!alerts.length) return <EmptyState ios="bell" android="notifications_none" title="No alerts yet" body="Announcements from your clubs and district association show up here." />;
+  if (!alerts.length) return <EmptyState ios="bell" android="notifications_none" title="No alerts yet" body="Announcements from your clubs and district association, and replies to your comments, show up here." />;
 
   return (
     <ScrollView style={{ backgroundColor: c.background }} contentContainerStyle={{ paddingBottom: space.xxl }}>
       {alerts.map((a) => (
-        <PressableScale key={a.id} scaleTo={0.99} disabled={!a.feedPostId} onPress={() => a.feedPostId && router.push({ pathname: '/post/[id]', params: { id: a.feedPostId } })}>
+        <PressableScale key={a.id} scaleTo={0.99} disabled={!a.postId} onPress={() => a.postId && router.push({ pathname: '/post/[id]', params: { id: a.postId } })}>
           <View style={{ flexDirection: 'row', gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.lg, borderBottomWidth: 1, borderBottomColor: c.line }}>
             {a.senderKind === 'basky' ? (
               <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon ios="basketball.fill" android="sports_basketball" size={22} color="#fff" />
               </View>
             ) : (
-              <Avatar name={a.senderName} size={44} square />
+              <Avatar name={a.senderName} size={44} square={a.senderKind !== 'user'} />
             )}
             <View style={{ flex: 1, gap: 3 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
@@ -51,7 +51,7 @@ export default function Alerts() {
               </View>
               <Text variant="subheading">{a.title}</Text>
               <Text color="textSecondary">{a.body}</Text>
-              <Text variant="micro" color="textMuted" style={{ marginTop: 2 }}>Sent to: {audienceLabel[a.audience]}</Text>
+              {a.audience && <Text variant="micro" color="textMuted" style={{ marginTop: 2 }}>Sent to: {audienceLabel[a.audience]}</Text>}
             </View>
           </View>
         </PressableScale>

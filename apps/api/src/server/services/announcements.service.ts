@@ -8,19 +8,18 @@
 // The inbox is worked out when it is opened (no per-person copies are stored), so someone who
 // joins a club later also sees that club's recent member announcements.
 import type { Prisma } from "@prisma/client";
-import { LIMITS } from "@baskyclub/shared";
+import { LIMITS, type AlertData, type AlertPageData, type Audience } from "@baskyclub/shared";
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, forbidden, notFound } from "../errors";
 import { uuid } from "../http";
 import { requireActive, type Viewer } from "../auth/viewer";
-import { decodeCursor } from "../lib/cursor";
+import { decodeCursor, encodeCursor, olderThan, type Cursor } from "../lib/cursor";
 import { sendPush } from "../lib/push";
 import { limitRate } from "../lib/rate-limit";
 import { activeClubIds, getClubPowers, getOrgPowers, isBaskyTeam } from "../permissions";
 
-export const AUDIENCES = ["club_admins_in_area", "affiliated_members", "district_users", "followers", "club_members", "everyone"] as const;
-type Audience = (typeof AUDIENCES)[number];
+export const AUDIENCES = ["club_admins_in_area", "affiliated_members", "district_users", "followers", "club_members", "everyone"] as const satisfies readonly Audience[];
 
 const ALLOWED: Record<"organization" | "club" | "basky", Audience[]> = {
   organization: ["club_admins_in_area", "affiliated_members", "district_users", "followers"],
@@ -237,44 +236,100 @@ async function inboxWhere(viewer: Viewer): Promise<Prisma.AnnouncementWhereInput
   };
 }
 
-export async function alerts(viewer: Viewer, query: z.infer<typeof inboxQuery>) {
+/**
+ * Alerts inbox (the bell). Two sources, merged newest first with one cursor:
+ * - announcements sent to the viewer's audiences (or, with box=sent, the ones they sent)
+ * - replies by other people in comment threads the viewer started (PRD §6). These are read
+ *   from post_comments, so no extra table is needed; posts the viewer can no longer see
+ *   (deleted, not published, members-only of a club they left) don't alert.
+ */
+export async function alerts(viewer: Viewer, query: z.infer<typeof inboxQuery>): Promise<AlertPageData> {
   const cursor = decodeCursor(query.cursor);
-  const base = query.box === "sent" ? { senderId: viewer.id } : await inboxWhere(viewer);
-  const rows = await prisma.announcement.findMany({
-    where: {
-      AND: [
-        base,
-        cursor ? { OR: [{ sentAt: { lt: cursor.at } }, { sentAt: cursor.at, id: { lt: cursor.id } }] } : {},
-      ],
-    },
-    select: {
-      id: true, title: true, body: true, audience: true, districtCode: true, sentAt: true, feedPostId: true,
-      sender: { select: { id: true, name: true } },
-      senderOrg: { select: { id: true, name: true, shortName: true, logoUrl: true } },
-      senderClub: { select: { id: true, name: true, logoUrl: true } },
-    },
-    orderBy: [{ sentAt: "desc" }, { id: "desc" }],
-    take: query.limit + 1,
-  });
-  const more = rows.length > query.limit;
-  const page = more ? rows.slice(0, query.limit) : rows;
+  const take = query.limit + 1;
+  const sent = query.box === "sent";
+  const base = sent ? { senderId: viewer.id } : await inboxWhere(viewer);
+  const [rows, replies] = await Promise.all([
+    prisma.announcement.findMany({
+      where: {
+        AND: [base, cursor ? { OR: [{ sentAt: { lt: cursor.at } }, { sentAt: cursor.at, id: { lt: cursor.id } }] } : {}],
+      },
+      select: {
+        id: true, title: true, body: true, audience: true, districtCode: true, sentAt: true, feedPostId: true,
+        sender: { select: { id: true, name: true } },
+        senderOrg: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+        senderClub: { select: { id: true, name: true, logoUrl: true } },
+      },
+      orderBy: [{ sentAt: "desc" }, { id: "desc" }],
+      take,
+    }),
+    sent ? Promise.resolve([]) : replyAlerts(viewer, cursor, take),
+  ]);
+
+  const items: AlertData[] = [
+    ...rows.map(
+      (a): AlertData => ({
+        id: a.id,
+        type: "announcement",
+        title: a.title,
+        body: a.body,
+        sentAt: a.sentAt,
+        postId: a.feedPostId,
+        audience: a.audience as Audience,
+        districtCode: a.districtCode,
+        feedPostId: a.feedPostId,
+        from: a.senderOrg
+          ? { type: "organization", ...a.senderOrg }
+          : a.senderClub
+            ? { type: "club", ...a.senderClub }
+            : { type: "basky", id: null, name: "BaskyCLub" },
+        sentBy: a.sender.name,
+      }),
+    ),
+    ...replies,
+  ].sort((x, y) => y.sentAt.getTime() - x.sentAt.getTime() || (y.id < x.id ? -1 : y.id > x.id ? 1 : 0));
+
+  const page = items.slice(0, query.limit);
   const last = page.at(-1);
   return {
-    alerts: page.map((a) => ({
-      id: a.id,
-      title: a.title,
-      body: a.body,
-      audience: a.audience,
-      districtCode: a.districtCode,
-      sentAt: a.sentAt,
-      feedPostId: a.feedPostId,
-      from: a.senderOrg
-        ? { type: "organization", ...a.senderOrg }
-        : a.senderClub
-          ? { type: "club", ...a.senderClub }
-          : { type: "basky", id: null, name: "BaskyCLub" },
-      sentBy: a.sender.name,
-    })),
-    nextCursor: more && last ? Buffer.from(`${last.sentAt.toISOString()}|${last.id}`).toString("base64url") : null,
+    alerts: page,
+    nextCursor: items.length > query.limit && last ? encodeCursor({ createdAt: last.sentAt, id: last.id }) : null,
   };
+}
+
+const ALERT_SNIPPET = 140;
+
+/** Replies by others in threads the viewer started, as alert items (newest first). */
+async function replyAlerts(viewer: Viewer, cursor: Cursor | null, take: number): Promise<AlertData[]> {
+  const myClubs = await activeClubIds(viewer);
+  const rows = await prisma.postComment.findMany({
+    where: {
+      parent: { userId: viewer.id },
+      userId: { not: viewer.id },
+      deletedAt: null,
+      moderationStatus: "published",
+      user: { status: { in: ["active", "limited"] } },
+      post: {
+        deletedAt: null,
+        moderationStatus: "published",
+        OR: [{ visibility: { in: ["public", "club_page"] } }, { visibility: "members", clubId: { in: myClubs } }],
+      },
+      ...olderThan(cursor),
+    },
+    select: { id: true, content: true, createdAt: true, postId: true, user: { select: { id: true, name: true, photoUrl: true } } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    type: "reply",
+    title: `${r.user.name} replied to your comment`,
+    body: r.content.length > ALERT_SNIPPET ? `${r.content.slice(0, ALERT_SNIPPET - 1).trimEnd()}…` : r.content,
+    sentAt: r.createdAt,
+    postId: r.postId,
+    audience: null,
+    districtCode: null,
+    feedPostId: null,
+    from: { type: "user", ...r.user },
+    sentBy: r.user.name,
+  }));
 }

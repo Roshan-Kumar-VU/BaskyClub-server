@@ -138,3 +138,40 @@ export interface ClubMemberData {
   roles: ClubRoleName[];
 }
 export type ClubMember = Json<ClubMemberData>;
+
+// ---- Alerts (the bell) -------------------------------------------------------------------------
+
+export type Audience = "club_admins_in_area" | "affiliated_members" | "district_users" | "followers" | "club_members" | "everyone";
+
+/**
+ * One item in the Alerts inbox (GET /api/alerts). Two kinds:
+ *   announcement — from an association, a club or the BaskyCLub team, to an audience
+ *   reply        — someone replied in a comment thread you started (PRD §6)
+ */
+export interface AlertData {
+  id: string;
+  type: "announcement" | "reply";
+  title: string;
+  body: string;
+  sentAt: Date;
+  /** The post to open when the alert is tapped (an announcement's feed card, or the replied post). */
+  postId: string | null;
+  /** Announcements only: who it was sent to. */
+  audience: Audience | null;
+  districtCode: string | null;
+  /** @deprecated use postId; kept for app versions that read it. */
+  feedPostId: string | null;
+  from:
+    | { type: "organization"; id: string; name: string; shortName: string | null; logoUrl: string | null }
+    | { type: "club"; id: string; name: string; logoUrl: string | null }
+    | { type: "basky"; id: null; name: string }
+    | { type: "user"; id: string; name: string; photoUrl: string | null };
+  sentBy: string;
+}
+export type Alert = Json<AlertData>;
+
+export interface AlertPageData {
+  alerts: AlertData[];
+  nextCursor: string | null;
+}
+export type AlertPage = Json<AlertPageData>;

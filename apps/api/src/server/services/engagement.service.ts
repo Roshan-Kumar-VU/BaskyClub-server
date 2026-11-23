@@ -11,6 +11,8 @@ import { uuid } from "../http";
 import { requireActive, type Viewer } from "../auth/viewer";
 import { decodeCursor, encodeCursor, newerThan } from "../lib/cursor";
 import { limitRate } from "../lib/rate-limit";
+import { log } from "../lib/log";
+import { sendPush } from "../lib/push";
 import { isModerator } from "../permissions";
 import { requireInteractivePost } from "./posts.service";
 
@@ -142,13 +144,17 @@ export async function addComment(viewer: Viewer, postId: string, input: z.infer<
 
   let parentId: string | null = null;
   let content = input.content;
+  const notify = new Set<string>(); // who gets a reply alert: the comment's author and the thread's starter
   if (input.parentId) {
     const parent = await prisma.postComment.findUnique({ where: { id: input.parentId }, include: { user: { select: { name: true } } } });
     if (!parent || parent.postId !== postId) throw notFound("Comment");
     if (isGone(parent)) throw badRequest("comment_removed", "You can't reply to a removed comment.");
+    notify.add(parent.userId);
     if (parent.parentId) {
       // Reply to a reply → same level, starting with @Name
       parentId = parent.parentId;
+      const top = await prisma.postComment.findUnique({ where: { id: parent.parentId }, select: { userId: true } });
+      if (top) notify.add(top.userId);
       const mention = `@${parent.user.name}`;
       if (!content.startsWith(mention)) content = `${mention} ${content}`;
     } else {
@@ -160,8 +166,40 @@ export async function addComment(viewer: Viewer, postId: string, input: z.infer<
     data: { postId, userId: viewer.id, parentId, content },
     select: commentSelect,
   });
-  // TODO(alerts): tell the parent comment's author about the reply (Round 3 alerts).
+  notify.delete(viewer.id);
+  if (notify.size) await pushReplyAlert(viewer, post, created.id, content, [...notify]);
   return toComment(viewer, created, post.authorId, parentId ? undefined : 0);
+}
+
+/**
+ * Push alert for a reply (PRD §6). The inbox lists replies itself (announcements.service → alerts).
+ * Only people who can still see the post get it; a failed push never fails the comment.
+ */
+async function pushReplyAlert(
+  viewer: Viewer,
+  post: { id: string; visibility: string; clubId: string | null },
+  commentId: string,
+  content: string,
+  userIds: string[],
+) {
+  try {
+    const recipients = await prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        status: { in: ["active", "limited"] },
+        ...(post.visibility === "members" ? { memberships: { some: { clubId: post.clubId ?? undefined, status: "active" } } } : {}),
+      },
+      select: { id: true },
+    });
+    if (!recipients.length) return;
+    const tokens = await prisma.deviceToken.findMany({ where: { userId: { in: recipients.map((r) => r.id) } }, select: { token: true } });
+    const body = content.length > 140 ? `${content.slice(0, 139).trimEnd()}…` : content;
+    await sendPush(
+      tokens.map((t) => ({ to: t.token, title: `${viewer.name} replied to your comment`, body, data: { type: "reply", postId: post.id, commentId } })),
+    );
+  } catch (err) {
+    log("ERROR", { module: "push", code: "reply_alert_failed" }, err instanceof Error ? err.stack : String(err));
+  }
 }
 
 export async function deleteComment(viewer: Viewer, commentId: string) {
