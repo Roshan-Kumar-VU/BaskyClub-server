@@ -160,7 +160,7 @@ Send the login token as `Authorization: Bearer <token>`.
 
 | Method | Address | Who | Does |
 |---|---|---|---|
-| GET / POST | /api/associations | anyone / Basky team | List (`?level=&stateCode=&q=`) / create (starts as draft) |
+| GET / POST | /api/associations | anyone / super admin | List (`?level=&stateCode=&q=`) / create (starts as draft) |
 | GET / PATCH | /api/associations/:id | anyone / association owner+admin (pageStatus: Basky team) | Association page / edit |
 | PUT | /api/associations/:id/districts | Basky team | `{ districtCodes }` it covers |
 | GET / POST | /api/associations/:id/members | association owner+admin | Who has power; add `{ userId, accessLevel }` |
@@ -186,7 +186,7 @@ Send the login token as `Authorization: Bearer <token>`.
 | GET / POST / DELETE | /api/admin/badges(/:id) | Basky team | Verified (clubs) and Creator (people) badges |
 | GET | /api/admin/users · POST /api/admin/users/:id/status | Basky team | Find accounts · suspend / restore `{ status, reason }` |
 | GET / POST / DELETE | /api/admin/roles(/:id) | super admin (list: Basky team) | BaskyCLub roles |
-| GET | /api/admin/change-log | Basky team | Who changed what |
+| GET | /api/admin/change-log | super admin | Who changed what |
 | PATCH | /api/admin/zones/:code · /api/admin/districts/:code | Basky team | Fix zones and districts |
 
 **Who can send announcements to whom:** association team → club admins in its area, members of affiliated clubs, people living in a district it covers, its followers · club owner/admin → club members, followers · BaskyCLub team → everyone, a district. Limit: 10 a day per sender.

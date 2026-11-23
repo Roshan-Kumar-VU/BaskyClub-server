@@ -129,8 +129,9 @@ export async function endPlatformRole(viewer: Viewer, roleId: string) {
 
 // ---- History (#61) ------------------------------------------------------------------------------
 
+/** PRD §2/§8: only a super admin reads the change log. */
 export async function changeLog(viewer: Viewer, query: z.infer<typeof changeLogQuery>) {
-  requireBaskyTeam(viewer);
+  requireSuperAdmin(viewer);
   const where: Prisma.ChangeLogWhereInput = {
     ...(query.entity ? { entity: query.entity } : {}),
     ...(query.entityId ? { entityId: query.entityId } : {}),

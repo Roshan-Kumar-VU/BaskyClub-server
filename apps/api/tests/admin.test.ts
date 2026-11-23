@@ -66,11 +66,14 @@ describe("Super-admin tools: badges, users, roles, history, zones (#12, #35, #43
     assert.deepEqual(list.body.roles.map((r: { role: string }) => r.role).sort(), ["basky_admin", "moderator", "super_admin"]);
   });
 
-  it("history: who changed what", async () => {
-    const res = await api("GET", "/api/admin/change-log?entity=platform_roles", { as: "baskyTeam" });
+  it("history: who changed what (super admin only)", async () => {
+    const res = await api("GET", "/api/admin/change-log?entity=platform_roles", { as: "superAdmin" });
     assert.equal(res.body.changes.length, 2);
     assert.equal(res.body.changes[0].actor.name, "Sara SuperAdmin");
-    assert.equal((await api("GET", "/api/admin/change-log", { as: "moderator" })).status, 403);
+    for (const who of ["baskyTeam", "moderator", "clubOwner"] as const) {
+      assert.equal((await api("GET", "/api/admin/change-log", { as: who })).status, 403, who);
+    }
+    assert.equal((await api("GET", "/api/admin/change-log")).status, 401);
   });
 
   it("zones and districts can be corrected from the dashboard (#18, #61)", async () => {

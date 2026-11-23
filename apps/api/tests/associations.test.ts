@@ -27,13 +27,13 @@ describe("Associations: page, team, office bearers, Media / Legacy, official pos
 
   let draftId = "";
 
-  it("only the Basky team creates associations; new ones start as hidden drafts", async () => {
+  it("only a super admin creates associations; new ones start as hidden drafts", async () => {
     const body = { name: "Ranipet District Basketball Association", shortName: "Ranipet DBA", level: "district", parentId: TEST_ORGS.tnba, stateCode: "TN", districtCodes: ["TN-RANIPET"] };
-    for (const who of ["districtAdmin", "tnbaAdmin", "moderator", "clubOwner"] as const) {
+    for (const who of ["baskyTeam", "districtAdmin", "tnbaAdmin", "moderator", "clubOwner"] as const) {
       assert.equal((await api("POST", "/api/associations", { as: who, body })).status, 403, who);
     }
-    assert.equal((await api("POST", "/api/associations", { as: "baskyTeam", body: { ...body, stateCode: undefined } })).body.error.code, "state_required");
-    const res = await api("POST", "/api/associations", { as: "baskyTeam", body });
+    assert.equal((await api("POST", "/api/associations", { as: "superAdmin", body: { ...body, stateCode: undefined } })).body.error.code, "state_required");
+    const res = await api("POST", "/api/associations", { as: "superAdmin", body });
     assert.equal(res.status, 201);
     assert.equal(res.body.pageStatus, "draft");
     draftId = res.body.id;

@@ -11,7 +11,7 @@ import { badRequest, conflict, forbidden, notFound } from "../errors";
 import { paging, uuid } from "../http";
 import { requireActive, type Viewer } from "../auth/viewer";
 import { mediaUrl } from "../lib/media";
-import { getOrgPowers, isBaskyTeam, logChange, requireBaskyTeam, requireOrgManager } from "../permissions";
+import { getOrgPowers, isBaskyTeam, logChange, requireBaskyTeam, requireOrgManager, requireSuperAdmin } from "../permissions";
 import { followerCount, isFollowing } from "./follows.service";
 
 export const ORG_LEVELS = ["national", "state", "district", "league_operator"] as const;
@@ -203,8 +203,9 @@ async function checkCoverage(districtCodes: string[]) {
   if (found !== new Set(districtCodes).size) throw badRequest("unknown_district", "One of the districts doesn't exist.");
 }
 
+/** PRD §2/§8: only a super admin creates associations. */
 export async function createOrg(viewer: Viewer, input: z.infer<typeof createOrgInput>) {
-  requireBaskyTeam(viewer);
+  requireSuperAdmin(viewer);
   if (input.parentId) await findOrg(input.parentId);
   if ((input.level === "state" || input.level === "district") && !input.stateCode) {
     throw badRequest("state_required", "State and district associations need a state.");
