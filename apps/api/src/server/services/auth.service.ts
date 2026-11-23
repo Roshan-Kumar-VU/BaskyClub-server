@@ -216,7 +216,8 @@ export async function me(viewer: Viewer) {
     ...user,
     isMinor: viewer.isMinor,
     platformRoles: [...viewer.platformRoles],
-    awaitingParent: user.status === "limited",
+    // limited = browse only: an under-18 waiting for a parent, or an account the Basky team limited
+    awaitingParent: user.status === "limited" && viewer.isMinor,
     creatorBadge: await creatorStatus(viewer.id),
   };
 }

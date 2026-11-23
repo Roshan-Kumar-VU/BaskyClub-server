@@ -184,7 +184,7 @@ Send the login token as `Authorization: Bearer <token>`.
 | POST | /api/uploads | active account | Photo (form field `file`, JPG/PNG/WEBP/HEIC, ≤10 MB) → `{ url }` |
 | POST | /api/auth/forgot-password · /api/auth/reset-password | anyone | Email a reset link · set the new password |
 | GET / POST / DELETE | /api/admin/badges(/:id) | Basky team | Verified (clubs) and Creator (people) badges |
-| GET | /api/admin/users · POST /api/admin/users/:id/status | Basky team | Find accounts · suspend / restore `{ status, reason }` |
+| GET | /api/admin/users · POST /api/admin/users/:id/status | Basky team | Find accounts · set `{ status: active / limited / suspended / deleted, reason }`. Deleted is final and refused while the person holds a BaskyCLub role or owns a club/association |
 | GET / POST / DELETE | /api/admin/roles(/:id) | super admin (list: Basky team) | BaskyCLub roles |
 | GET | /api/admin/change-log | super admin | Who changed what |
 | PATCH | /api/admin/zones/:code · /api/admin/districts/:code | Basky team | Fix zones and districts |

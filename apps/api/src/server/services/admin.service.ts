@@ -1,6 +1,7 @@
 // Super-admin dashboard: users, BaskyCLub roles, change history, zones and districts (#12, #43, #61).
 //   Basky team (basky_admin, super_admin): find users, suspend / restore, history, zones, districts
 //   Super admin only: give or end BaskyCLub roles
+import { ADULT_AGE, ageOn } from "@baskyclub/shared";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../db";
@@ -15,7 +16,7 @@ export const listUsersQuery = z.object({
   ...paging,
 });
 export const setStatusInput = z.object({
-  status: z.enum(["active", "suspended"]),
+  status: z.enum(["active", "limited", "suspended", "deleted"]),
   reason: z.string().trim().min(3).max(500),
 });
 export const grantPlatformRoleInput = z.object({ userId: uuid, role: z.enum(["super_admin", "basky_admin", "moderator"]) });
@@ -66,6 +67,7 @@ export async function listUsers(viewer: Viewer, query: z.infer<typeof listUsersQ
   return { users, total };
 }
 
+/** PRD §8: a Basky admin sets active, limited (browse only), suspended or deleted (can't log in). */
 export async function setUserStatus(viewer: Viewer, userId: string, input: z.infer<typeof setStatusInput>) {
   requireBaskyTeam(viewer);
   if (userId === viewer.id) throw badRequest("not_yourself", "You can't change your own account status.");
@@ -74,10 +76,24 @@ export async function setUserStatus(viewer: Viewer, userId: string, input: z.inf
   if (user.platformRoles.some((r) => r.role === "super_admin") && !viewer.platformRoles.has("super_admin")) {
     throw forbidden("super_admin_only", "Only a super admin can change a super admin's account.");
   }
-  if (input.status === "active" && user.status === "limited") {
-    throw badRequest("needs_parent", "Under-18 accounts become active when a parent confirms.");
-  }
   if (user.status === input.status) return { id: user.id, status: user.status };
+
+  // An under-18 account waiting for a parent becomes active only through the parent's link (#67).
+  if (input.status === "active" && user.status === "limited" && ageOn(user.dateOfBirth) < ADULT_AGE) {
+    const consent = await prisma.parentalConsent.findFirst({ where: { userId: user.id, status: "confirmed" }, select: { id: true } });
+    if (!consent) throw badRequest("needs_parent", "Under-18 accounts become active when a parent confirms.");
+  }
+
+  // Deleting is final (the account can't log in or be restored here), so nothing may depend on it.
+  if (input.status === "deleted") {
+    const [platformRole, clubOwner, orgOwner] = await Promise.all([
+      prisma.platformRole.findFirst({ where: { userId: user.id, toAt: null }, select: { id: true } }),
+      prisma.clubRole.findFirst({ where: { userId: user.id, role: "owner", toAt: null, club: { deletedAt: null } }, select: { id: true } }),
+      prisma.organizationMember.findFirst({ where: { userId: user.id, accessLevel: "owner", toAt: null }, select: { id: true } }),
+    ]);
+    if (platformRole) throw badRequest("remove_roles_first", "Remove this person's BaskyCLub roles first.");
+    if (clubOwner || orgOwner) throw badRequest("hand_over_first", "This person owns a club or association. Hand it over first.");
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.user.update({ where: { id: user.id }, data: { status: input.status } });

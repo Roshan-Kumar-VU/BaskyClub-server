@@ -70,9 +70,10 @@ export async function requireViewer(req: Request): Promise<Viewer> {
  */
 export function requireActive(viewer: Viewer): void {
   if (viewer.status === "limited") {
-    throw forbidden(
-      "awaiting_parent",
-      "Your parent or guardian needs to confirm your account first. We sent them an email.",
-    );
+    if (viewer.isMinor) {
+      throw forbidden("awaiting_parent", "Your parent or guardian needs to confirm your account first. We sent them an email.");
+    }
+    // An adult account the Basky team limited (browse only)
+    throw forbidden("account_limited", "Your account can only browse for now. Contact the BaskyCLub team.");
   }
 }

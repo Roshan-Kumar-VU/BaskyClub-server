@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
-import { api, prisma, resetDatabase, TEST_CLUBS, TEST_PASSWORD, TEST_USERS, uid } from "./helpers";
+import { api, prisma, resetDatabase, TEST_CLUBS, TEST_PASSWORD, TEST_POSTS, TEST_USERS, uid } from "./helpers";
 
 describe("Super-admin tools: badges, users, roles, history, zones (#12, #35, #43, #61, #73)", () => {
   before(resetDatabase);
@@ -49,6 +49,49 @@ describe("Super-admin tools: badges, users, roles, history, zones (#12, #35, #43
 
     const log = await prisma.changeLog.findMany({ where: { entity: "users", entityId: uid("joiner") }, orderBy: { at: "asc" } });
     assert.deepEqual(log.map((l) => (l.afterValue as { status: string }).status), ["suspended", "active"]);
+  });
+
+  it("limited: browse only, can still log in; the Basky team can restore an adult", async () => {
+    const reason = "Spam while we check";
+    const set = (who: Parameters<typeof uid>[0], status: string, as: Parameters<typeof uid>[0] = "baskyTeam") =>
+      api("POST", `/api/admin/users/${uid(who)}/status`, { as, body: { status, reason } });
+    assert.equal((await set("normalUser", "limited")).body.status, "limited");
+    const login = await api("POST", "/api/auth/login", { body: { login: TEST_USERS.normalUser.email, password: TEST_PASSWORD } });
+    assert.equal(login.status, 200);
+    const me = await api("GET", "/api/auth/me", { as: "normalUser" });
+    assert.equal(me.body.status, "limited");
+    assert.equal(me.body.awaitingParent, false); // an adult isn't waiting for a parent
+    const post = await api("POST", "/api/posts", { as: "normalUser", body: { content: "hi" } });
+    assert.equal(post.body.error.code, "account_limited");
+    assert.equal((await api("GET", "/api/feed", { as: "normalUser" })).status, 200); // browsing works
+    assert.equal((await set("normalUser", "active")).body.status, "active");
+    // An under-18 waiting for a parent still needs the parent, and keeps its own message
+    assert.equal((await set("minorAwaitingParent", "active")).body.error.code, "needs_parent");
+    assert.equal((await api("GET", "/api/auth/me", { as: "minorAwaitingParent" })).body.awaitingParent, true);
+    // A minor whose parent already confirmed can be limited and restored by the team
+    assert.equal((await set("minorPlayer", "limited")).body.status, "limited");
+    assert.equal((await set("minorPlayer", "active")).body.status, "active");
+    // Unknown status
+    assert.equal((await set("normalUser", "banned")).status, 400);
+  });
+
+  it("deleted: can't log in, profile and posts disappear; refused while roles or ownership depend on the person", async () => {
+    const reason = "Asked us to delete the account";
+    const set = (who: Parameters<typeof uid>[0], status: string) =>
+      api("POST", `/api/admin/users/${uid(who)}/status`, { as: "baskyTeam", body: { status, reason } });
+    assert.equal((await set("moderator", "deleted")).body.error.code, "remove_roles_first");
+    assert.equal((await set("clubOwner", "deleted")).body.error.code, "hand_over_first");
+    assert.equal((await set("districtAdmin", "deleted")).body.error.code, "hand_over_first");
+
+    assert.equal((await api("GET", "/api/auth/me", { as: "creator" })).status, 200); // logged in before the delete
+    assert.equal((await set("creator", "deleted")).body.status, "deleted");
+    const login = await api("POST", "/api/auth/login", { body: { login: TEST_USERS.creator.email, password: TEST_PASSWORD } });
+    assert.equal(login.status, 401);
+    assert.equal((await api("GET", "/api/auth/me", { as: "creator" })).status, 401); // an old token stops working
+    assert.equal((await api("GET", `/api/users/${uid("creator")}`)).status, 404);
+    assert.equal((await api("GET", `/api/posts/${TEST_POSTS.creatorDrill}`)).status, 404);
+    // Final here: can't be restored or changed again
+    assert.equal((await set("creator", "active")).status, 404);
   });
 
   it("BaskyCLub roles: only a super admin gives or ends them; at least one super admin stays", async () => {
