@@ -3,7 +3,7 @@
 // - Comments have one level of replies. Replying to a reply attaches to the same top-level
 //   comment and starts with "@Name". Deleting leaves "Comment removed" if it has replies.
 // - Spam limit: 5 comments a minute per person.
-import { LIMITS, type CommentData } from "@baskyclub/shared";
+import { LIMITS, type CommentData, type CommentPageData, type ReplyPageData } from "@baskyclub/shared";
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, forbidden, notFound } from "../errors";
@@ -96,7 +96,7 @@ async function visibleReplyCounts(parentIds: string[]) {
 }
 
 /** Top-level comments, oldest first, 20 at a time. */
-export async function listComments(viewer: Viewer | null, postId: string, query: z.infer<typeof commentsQuery>) {
+export async function listComments(viewer: Viewer | null, postId: string, query: z.infer<typeof commentsQuery>): Promise<CommentPageData> {
   const post = await requireInteractivePost(viewer, postId);
   const rows = await prisma.postComment.findMany({
     where: { postId, parentId: null, ...newerThan(decodeCursor(query.cursor)) },
@@ -115,7 +115,7 @@ export async function listComments(viewer: Viewer | null, postId: string, query:
 }
 
 /** "View N replies". */
-export async function listReplies(viewer: Viewer | null, commentId: string, query: z.infer<typeof commentsQuery>) {
+export async function listReplies(viewer: Viewer | null, commentId: string, query: z.infer<typeof commentsQuery>): Promise<ReplyPageData> {
   const parent = await prisma.postComment.findUnique({ where: { id: commentId } });
   if (!parent || parent.parentId) throw notFound("Comment");
   const post = await requireInteractivePost(viewer, parent.postId);

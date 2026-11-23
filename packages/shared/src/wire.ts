@@ -84,6 +84,21 @@ export interface CommentData {
 }
 export type Comment = Json<CommentData>;
 
+/** GET /api/posts/:id/comments — top-level comments, oldest first; pass nextCursor for the next page. */
+export interface CommentPageData {
+  comments: CommentData[];
+  commentCount: number;
+  nextCursor: string | null;
+}
+export type CommentPage = Json<CommentPageData>;
+
+/** GET /api/comments/:id/replies — replies to one top-level comment, oldest first. */
+export interface ReplyPageData {
+  replies: CommentData[];
+  nextCursor: string | null;
+}
+export type ReplyPage = Json<ReplyPageData>;
+
 // ---- Clubs -----------------------------------------------------------------------------------
 
 /** A club in lists, search and the map (clubs.service → toClubCard). */

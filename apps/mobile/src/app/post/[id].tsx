@@ -11,16 +11,25 @@ import { EmptyState } from '@/components/empty-state';
 import { Icon } from '@/components/icon';
 import { PostCard } from '@/components/post-card';
 import { Text } from '@/components/text';
-import { addComment, deleteComment, getComments, getPost, isPostLoaded } from '@/data/repo';
+import {
+  addComment,
+  type CommentRow,
+  deleteComment,
+  getComments,
+  getPost,
+  getReplies,
+  isPostLoaded,
+  loadMoreComments,
+  loadMoreReplies,
+} from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
 import { timeAgo } from '@/lib/format';
 import { deletePost, updateMyProfile } from '@/data/manage';
 import { confirm, notify } from '@/lib/notify';
 import { errorMessage, useSession } from '@/lib/session';
-import type { PostComment, User } from '@/types/models';
 import { fonts, radius, space, useTheme } from '@/theme';
 
-type C = PostComment & { user?: User };
+type C = CommentRow;
 
 /** Post + comments with one level of replies (SCHEMA_PHASE1 section 4.6). */
 export default function PostDetail() {
@@ -36,7 +45,7 @@ export default function PostDetail() {
   const post = getPost(id);
   if (!post && !isPostLoaded(id)) return <View style={{ flex: 1, backgroundColor: c.background }} />;
   if (!post) return <EmptyState ios="lock" android="lock" title="Post not available" body="It may be for club members only, or still in review." />;
-  const comments = getComments(id);
+  const { comments, hasMore } = getComments(id);
   const isMod = !!user?.platformRoles.some((r) => r === 'moderator' || r === 'basky_admin' || r === 'super_admin');
 
   const startReply = (cm: C) =>
@@ -62,7 +71,27 @@ export default function PostDetail() {
     });
 
   const remove = (cm: C) =>
-    confirm('Delete comment?', 'Replies stay, and it will show as “Comment removed”.', 'Delete', () => deleteComment(cm.id).catch((e) => notify("Couldn't delete", errorMessage(e))));
+    confirm('Delete comment?', 'Replies stay, and it will show as “Comment removed”.', 'Delete', () => deleteComment(id, cm).catch((e) => notify("Couldn't delete", errorMessage(e))));
+
+  const moreLink = (label: string, onPress: () => void, indent: number) => (
+    <Pressable onPress={() => onPress()} style={{ paddingLeft: indent, paddingVertical: space.sm }}>
+      <Text variant="caption" color="accentText" style={{ fontFamily: fonts.bodyBold }}>{label}</Text>
+    </Pressable>
+  );
+
+  /** Replies load the first time a thread is opened. */
+  const replies = (cm: C) => {
+    const r = getReplies(id, cm.id);
+    if (!r.loaded && r.replies.length === 0) {
+      return <Text variant="caption" color="textMuted" style={{ paddingLeft: space.lg + 46, paddingVertical: 4 }}>Loading replies…</Text>;
+    }
+    return (
+      <>
+        {r.replies.map((x) => row(x, true))}
+        {r.hasMore && moreLink('View more replies', () => loadMoreReplies(id, cm.id), space.lg + 46)}
+      </>
+    );
+  };
 
   const row = (cm: C, reply: boolean) => (
     <View key={cm.id} style={{ flexDirection: 'row', gap: space.md, paddingLeft: reply ? space.lg + 46 : space.lg, paddingRight: space.lg, paddingVertical: space.sm }}>
@@ -115,15 +144,16 @@ export default function PostDetail() {
         {comments.map((cm) => (
           <View key={cm.id}>
             {row(cm, false)}
-            {cm.replies.length > 0 && !open[cm.id] && (
+            {cm.replyCount > 0 && !open[cm.id] && (
               <Pressable onPress={() => setOpen((o) => ({ ...o, [cm.id]: true }))} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: space.lg + 46, paddingVertical: 4 }}>
                 <View style={{ width: 24, height: 1, backgroundColor: c.textMuted }} />
-                <Text variant="caption" color="textMuted" style={{ fontFamily: fonts.bodyBold }}>View {cm.replies.length} {cm.replies.length === 1 ? 'reply' : 'replies'}</Text>
+                <Text variant="caption" color="textMuted" style={{ fontFamily: fonts.bodyBold }}>View {cm.replyCount} {cm.replyCount === 1 ? 'reply' : 'replies'}</Text>
               </Pressable>
             )}
-            {open[cm.id] && cm.replies.map((r) => row(r, true))}
+            {open[cm.id] && replies(cm)}
           </View>
         ))}
+        {hasMore && moreLink('Load more comments', () => loadMoreComments(id), space.lg)}
       </ScrollView>
       <View style={{ backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.line, paddingBottom: insets.bottom + space.sm }}>
         {replyTo && (

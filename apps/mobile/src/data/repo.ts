@@ -20,7 +20,16 @@ import type {
   Visibility,
 } from '@/types/models';
 
-import { youtubeThumbnail, type ClubCard, type ClubMember, type Comment, type Person, type PostCard } from '@baskyclub/shared';
+import {
+  youtubeThumbnail,
+  type ClubCard,
+  type ClubMember,
+  type Comment,
+  type CommentPage,
+  type Person,
+  type PostCard,
+  type ReplyPage,
+} from '@baskyclub/shared';
 
 import { ApiError, del, get, patch, post, uploadPhoto } from './api';
 import { invalidate, isLoaded, load, peek, put, read, update } from './cache';
@@ -275,13 +284,19 @@ export async function sharePost(postId: string) {
 }
 
 // ── Comments ──────────────────────────────────────────────────────────────
-export interface CommentView extends PostComment {
-  user?: User;
-  replies: (PostComment & { user?: User })[];
+// Top-level comments load a page at a time (oldest first, like the server). Replies load
+// only when someone opens them ("View N replies"), one request per opened thread.
+
+export type CommentRow = PostComment & { user?: User };
+export interface CommentView extends CommentRow {
+  /** Visible replies on the server (what "View N replies" counts). */
+  replyCount: number;
 }
+type Paged<T> = { items: T[]; nextCursor: string | null };
 
+const COMMENTS_PAGE = 20;
 
-function toComment(postId: string, c: Comment): PostComment & { user?: User } {
+function toComment(postId: string, c: Comment): CommentRow {
   return {
     id: c.id,
     postId,
@@ -293,18 +308,80 @@ function toComment(postId: string, c: Comment): PostComment & { user?: User } {
     user: c.user ? toUser(c.user) : undefined,
   };
 }
+const toCommentView = (postId: string, c: Comment): CommentView => ({ ...toComment(postId, c), replyCount: c.replyCount ?? 0 });
 
-/** Top-level comments with one level of replies. */
-export function getComments(postId: string): CommentView[] {
-  return read(`comments:${postId}`, async () => {
-    const r = await get<{ comments: Comment[] }>(`/api/posts/${postId}/comments?limit=50`);
-    return Promise.all(
-      r.comments.map(async (c) => {
-        const replies = c.replyCount ? (await get<{ replies: Comment[] }>(`/api/comments/${c.id}/replies?limit=50`)).replies : [];
-        return { ...toComment(postId, c), replies: replies.map((x) => toComment(postId, x)) } as CommentView;
-      }),
-    );
-  }, [] as CommentView[]);
+/** Union by id (newer copy wins), in the server's order: oldest first, then by id. */
+function merge<T extends { id: string; createdAt: string }>(older: T[], newer: T[]): T[] {
+  const byId = new Map(older.map((x) => [x.id, x]));
+  for (const x of newer) byId.set(x.id, x);
+  return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+}
+
+/**
+ * First page of a paged list. When the cache refreshes it, pages loaded with "load more"
+ * are kept (merged), so a refresh never shrinks what the person is reading.
+ */
+function readPaged<T extends { id: string; createdAt: string }>(key: string, fetchFirst: () => Promise<Paged<T>>) {
+  const page = read<Paged<T> | undefined>(
+    key,
+    async () => {
+      const fresh = await fetchFirst();
+      const old = peek<Paged<T>>(key);
+      if (!old || old.items.length <= fresh.items.length) return fresh;
+      return { items: merge(old.items, fresh.items), nextCursor: old.nextCursor };
+    },
+    undefined,
+  );
+  return { items: page?.items ?? [], hasMore: !!page?.nextCursor, loaded: isLoaded(key) };
+}
+
+const loadingMore = new Set<string>();
+async function loadMorePaged<T extends { id: string; createdAt: string }>(key: string, fetchNext: (cursor: string) => Promise<Paged<T>>) {
+  const page = peek<Paged<T>>(key);
+  if (!page?.nextCursor || loadingMore.has(key)) return;
+  loadingMore.add(key);
+  try {
+    const next = await fetchNext(page.nextCursor);
+    const latest = peek<Paged<T>>(key) ?? page;
+    put(key, { items: merge(latest.items, next.items), nextCursor: next.nextCursor });
+  } finally {
+    loadingMore.delete(key);
+  }
+}
+
+const commentsKey = (postId: string) => `comments:${postId}`;
+const repliesKey = (commentId: string) => `replies:${commentId}`;
+const pageQuery = (cursor?: string) => `limit=${COMMENTS_PAGE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+
+async function fetchComments(postId: string, cursor?: string): Promise<Paged<CommentView>> {
+  const r = await get<CommentPage>(`/api/posts/${postId}/comments?${pageQuery(cursor)}`);
+  return { items: r.comments.map((c) => toCommentView(postId, c)), nextCursor: r.nextCursor };
+}
+async function fetchReplies(postId: string, commentId: string, cursor?: string): Promise<Paged<CommentRow>> {
+  const r = await get<ReplyPage>(`/api/comments/${commentId}/replies?${pageQuery(cursor)}`);
+  return { items: r.replies.map((c) => toComment(postId, c)), nextCursor: r.nextCursor };
+}
+
+/** Top-level comments loaded so far, and whether there are more. */
+export function getComments(postId: string): { comments: CommentView[]; hasMore: boolean } {
+  const p = readPaged(commentsKey(postId), () => fetchComments(postId));
+  return { comments: p.items, hasMore: p.hasMore };
+}
+export const loadMoreComments = (postId: string) => loadMorePaged(commentsKey(postId), (cursor) => fetchComments(postId, cursor));
+
+/** Replies to one top-level comment; the first call starts loading them. */
+export function getReplies(postId: string, commentId: string): { replies: CommentRow[]; hasMore: boolean; loaded: boolean } {
+  const p = readPaged(repliesKey(commentId), () => fetchReplies(postId, commentId));
+  return { replies: p.items, hasMore: p.hasMore, loaded: p.loaded };
+}
+export const loadMoreReplies = (postId: string, commentId: string) =>
+  loadMorePaged(repliesKey(commentId), (cursor) => fetchReplies(postId, commentId, cursor));
+
+function changeComments(postId: string, change: (items: CommentView[]) => CommentView[]) {
+  update<Paged<CommentView>>(commentsKey(postId), (p) => ({ ...p, items: change(p.items) }));
+}
+function changeReplies(commentId: string, change: (items: CommentRow[]) => CommentRow[]) {
+  update<Paged<CommentRow>>(repliesKey(commentId), (p) => ({ ...p, items: change(p.items) }));
 }
 
 async function refreshPost(postId: string) {
@@ -316,21 +393,41 @@ async function refreshPost(postId: string) {
   }
 }
 
-/** A reply to a reply attaches to the same top-level comment (the server keeps one level). */
+/**
+ * Adds the server's copy of the new comment to what's on screen (no list refetch).
+ * A reply to a reply attaches to the same top-level comment (the server keeps one level).
+ */
 export async function addComment(postId: string, _userId: string, content: string, replyTo?: PostComment) {
-  await post(`/api/posts/${postId}/comments`, { content, ...(replyTo ? { parentId: replyTo.id } : {}) });
-  invalidate(`comments:${postId}`);
+  const created = await post<Comment>(`/api/posts/${postId}/comments`, { content, ...(replyTo ? { parentId: replyTo.id } : {}) });
+  const topId = created.parentId;
+  if (topId) {
+    changeComments(postId, (items) => items.map((c) => (c.id === topId ? { ...c, replyCount: c.replyCount + 1 } : c)));
+    changeReplies(topId, (items) => merge(items, [toComment(postId, created)]));
+  } else {
+    changeComments(postId, (items) => merge(items, [toCommentView(postId, created)]));
+  }
   await refreshPost(postId);
 }
 
-export async function deleteComment(id: string) {
-  await del(`/api/comments/${id}`);
-  for (const [postId] of postsById) {
-    if (peek<CommentView[]>(`comments:${postId}`)?.some((c) => c.id === id || c.replies.some((r) => r.id === id))) {
-      invalidate(`comments:${postId}`);
-      await refreshPost(postId);
-    }
+/**
+ * Same rules as the server's lists: a removed reply disappears; a removed top-level comment
+ * stays as "Comment removed" only while it has replies.
+ */
+export async function deleteComment(postId: string, comment: CommentRow) {
+  await del(`/api/comments/${comment.id}`);
+  const topId = comment.parentId;
+  if (topId) {
+    changeReplies(topId, (items) => items.filter((r) => r.id !== comment.id));
+    changeComments(postId, (items) => items.map((c) => (c.id === topId ? { ...c, replyCount: Math.max(0, c.replyCount - 1) } : c)));
+  } else {
+    changeComments(postId, (items) =>
+      items.flatMap((c) => {
+        if (c.id !== comment.id) return [c];
+        return c.replyCount > 0 ? [{ ...c, content: '', user: undefined, userId: '', deletedAt: new Date().toISOString() }] : [];
+      }),
+    );
   }
+  await refreshPost(postId);
 }
 
 export async function createPost(input: { userId: string; clubId?: string; content: string; visibility: Visibility; images: { uri: string; ratio: number }[]; youtube?: string }) {
