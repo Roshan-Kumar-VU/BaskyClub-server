@@ -76,6 +76,11 @@ describe("Announcements and the Alerts inbox (#65, #75)", () => {
     const ok = await api("POST", "/api/announcements", { as: "clubAdmin", body: { senderClubId: H, audience: "club_members", title: "Practice cancelled", body: "Rain today. See you Thursday.", showInFeed: true } });
     assert.equal(ok.status, 201);
     assert.deepEqual(pushedTo(start), ["ExponentPushToken[test-club-owner]", "ExponentPushToken[test-player]"]);
+    // A tap on the push opens its feed card
+    assert.deepEqual(pushOutbox.slice(start).map((m) => m.data), [
+      { type: "announcement", announcementId: ok.body.id, postId: ok.body.feedPostId },
+      { type: "announcement", announcementId: ok.body.id, postId: ok.body.feedPostId },
+    ]);
     // Its feed card is members-only
     const card = await prisma.post.findUniqueOrThrow({ where: { id: ok.body.feedPostId } });
     assert.equal(card.visibility, "members");

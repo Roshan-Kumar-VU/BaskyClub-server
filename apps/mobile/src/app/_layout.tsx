@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplash } from '@/components/animated-splash';
+import { useAlertTaps } from '@/lib/push';
 import { ScopeProvider, useScope } from '@/lib/scope';
 import { SessionProvider, useSession } from '@/lib/session';
 import { colors, fonts, useTheme } from '@/theme';
@@ -45,6 +46,7 @@ function App() {
   useEffect(() => {
     if (ready) SplashScreen.hideAsync();
   }, [ready]);
+  useAlertTaps(ready);
 
   const c = dark ? colors.dark : colors.light;
   const base = dark ? DarkTheme : DefaultTheme;

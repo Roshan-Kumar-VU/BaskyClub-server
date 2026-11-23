@@ -13,6 +13,7 @@ import { clearAll, load as loadKey, peek, read } from '@/data/cache';
 import { fetchMe, loadPlaces, type Me, setViewer } from '@/data/repo';
 import { useStoreVersion } from '@/data/store';
 
+import { registerForPush, unregisterPush } from './push';
 import { load, save } from './storage';
 
 export type SignupInput = {
@@ -68,8 +69,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const startSession = useCallback(async (token: string) => {
     setToken(token);
     await loadKey('me', fetchMe);
-    if (peek<Me>('me')) setSignedIn(true);
-    else {
+    if (peek<Me>('me')) {
+      setSignedIn(true);
+      registerForPush(); // in the background; never blocks or breaks login
+    } else {
       setToken(null);
       save(TOKEN_KEY, null);
     }
@@ -107,7 +110,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [startSession],
   );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await unregisterPush(); // while still logged in, so this phone stops getting this account's alerts
     setToken(null);
     save(TOKEN_KEY, null);
     setSignedIn(false);

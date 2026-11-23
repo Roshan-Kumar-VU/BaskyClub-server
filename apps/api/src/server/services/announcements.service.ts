@@ -96,7 +96,7 @@ async function recipientUserIds(a: {
   return [];
 }
 
-async function pushTo(senderId: string, a: Parameters<typeof recipientUserIds>[0] & { id: string; title: string; body: string }) {
+async function pushTo(senderId: string, a: Parameters<typeof recipientUserIds>[0] & { id: string; title: string; body: string; feedPostId: string | null }) {
   const ids = await recipientUserIds(a);
   const tokens = await prisma.deviceToken.findMany({
     where: {
@@ -106,7 +106,8 @@ async function pushTo(senderId: string, a: Parameters<typeof recipientUserIds>[0
     },
     select: { token: true },
   });
-  return sendPush(tokens.map((t) => ({ to: t.token, title: a.title, body: a.body, data: { type: "announcement", announcementId: a.id } })));
+  return sendPush(tokens.map((t) => ({ to: t.token, title: a.title, body: a.body, // postId: where a tap goes (the Official feed card), same as the inbox item
+    data: { type: "announcement", announcementId: a.id, postId: a.feedPostId } })));
 }
 
 // ---- Send ---------------------------------------------------------------------------------
