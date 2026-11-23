@@ -2,16 +2,12 @@
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, conflict, forbidden, notFound } from "../errors";
-import { uuid } from "../http";
+import { dateOnly, uuid } from "../http";
 import { requireActive, type Viewer } from "../auth/viewer";
 import { DAY_MS } from "../lib/dates";
 import { sendPush } from "../lib/push";
 import { logChange, requireBaskyTeam } from "../permissions";
 
-const dateOnly = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .transform((s) => new Date(`${s}T00:00:00.000Z`));
 
 export const giveBadgeInput = z
   .object({

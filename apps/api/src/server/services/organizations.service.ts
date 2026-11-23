@@ -8,7 +8,7 @@ import { LIMITS } from "@baskyclub/shared";
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, conflict, forbidden, notFound } from "../errors";
-import { paging, uuid } from "../http";
+import { dateOnly, paging, uuid } from "../http";
 import { requireActive, type Viewer } from "../auth/viewer";
 import { mediaUrl } from "../lib/media";
 import { getOrgPowers, isBaskyTeam, logChange, requireBaskyTeam, requireOrgManager, requireSuperAdmin } from "../permissions";
@@ -17,10 +17,6 @@ import { followerCount, isFollowing } from "./follows.service";
 export const ORG_LEVELS = ["national", "state", "district", "league_operator"] as const;
 const PAGE_STATUSES = ["draft", "published", "claimed"] as const;
 
-const dateOnly = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use the format YYYY-MM-DD.")
-  .transform((s) => new Date(`${s}T00:00:00.000Z`));
 
 const orgDetails = {
   name: z.string().trim().min(3).max(120),

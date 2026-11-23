@@ -3,6 +3,7 @@ import { LIMITS } from "@baskyclub/shared";
 import { z } from "zod";
 import { creatorStatus } from "./badges.service";
 import { prisma } from "../db";
+import { dateOnly } from "../http";
 import { env } from "../env";
 import { AppError, badRequest, conflict, notFound, unauthorized } from "../errors";
 import { checkPassword, dummyPasswordHash, hashPassword } from "../auth/password";
@@ -22,11 +23,6 @@ const password = z
   .min(LIMITS.password.min, `Password must be at least ${LIMITS.password.min} characters.`)
   .max(LIMITS.password.max, `Password must be at most ${LIMITS.password.max} characters.`);
 
-const dateOnly = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use the format YYYY-MM-DD.")
-  .transform((s) => new Date(`${s}T00:00:00.000Z`))
-  .refine((d) => !Number.isNaN(d.getTime()), "Not a real date.");
 
 export const signupInput = z.object({
   name: z.string().trim().min(LIMITS.personName.min, "Enter your full name.").max(LIMITS.personName.max),

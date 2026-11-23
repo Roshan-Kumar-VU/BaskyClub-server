@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
-import { api, prisma, resetDatabase, TEST_PASSWORD, TEST_USERS } from "./helpers";
+import { api, prisma, resetDatabase, TEST_ORGS, TEST_PASSWORD, TEST_USERS } from "./helpers";
 
 const adult = {
   name: "New Person",
@@ -171,5 +171,32 @@ describe("Sign up, log in, who am I", () => {
     const vellore = tn.body.districts.find((d: { code: string }) => d.code === "TN-VELLORE");
     assert.equal(vellore.zoneCode, "TN-Z-CHN");
     assert.ok(vellore.associationId);
+  });
+});
+
+describe("Dates must be real calendar days", () => {
+  before(resetDatabase);
+
+  it("sign-up refuses a date of birth that doesn't exist (no silent roll-over)", async () => {
+    const base = { name: "Date Check", password: "Basky@123" };
+    let n = 0;
+    const signup = (dateOfBirth: string) => {
+      n += 1;
+      return api("POST", "/api/auth/signup", { body: { ...base, email: `date${n}@example.com`, phone: `98100000${String(n).padStart(2, "0")}`, dateOfBirth } });
+    };
+    for (const bad of ["2000-02-30", "2001-02-29", "2000-13-01", "2000-00-10", "2000-04-31", "2000-1-5", "05/06/2000", ""]) {
+      const res = await signup(bad);
+      assert.equal(res.status, 400, bad);
+      assert.equal(res.body.error.code, "invalid_input", bad);
+    }
+    assert.equal((await signup("2000-02-29")).status, 201); // a real leap day
+  });
+
+  it("office bearer terms too", async () => {
+    const V = TEST_ORGS.velloreDba;
+    const add = (termFrom: string) =>
+      api("POST", `/api/associations/${V}/office-bearers`, { as: "districtAdmin", body: { name: "Ms. Date Check", designation: "Treasurer", termFrom } });
+    assert.equal((await add("2025-02-29")).status, 400);
+    assert.equal((await add("2024-02-29")).status, 201);
   });
 });

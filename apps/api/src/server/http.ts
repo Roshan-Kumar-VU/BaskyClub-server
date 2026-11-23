@@ -125,6 +125,20 @@ export function clientIp(req: Request): string | null {
 
 // Common field checks
 export const uuid = z.uuid({ message: "Must be a valid id." });
+
+/**
+ * A calendar day as "YYYY-MM-DD" → Date at 00:00 UTC. Refuses days that don't exist
+ * (2026-02-31, 2025-02-29, month 13), which `new Date()` would otherwise roll over silently.
+ */
+export const dateOnly = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use the format YYYY-MM-DD.")
+  .refine((s) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return true; // the format message above already covers it
+    const d = new Date(`${s}T00:00:00.000Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(s);
+  }, "Not a real date.")
+  .transform((s) => new Date(`${s}T00:00:00.000Z`));
 export const paging = {
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),

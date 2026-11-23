@@ -5,14 +5,10 @@
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, conflict, forbidden, notFound } from "../errors";
-import { uuid } from "../http";
+import { dateOnly, uuid } from "../http";
 import { requireActive, type Viewer } from "../auth/viewer";
 import { getClubPowers, getOrgPowers, isBaskyTeam, logChange, requireClubManager, requireOrgManager } from "../permissions";
 
-const dateOnly = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use the format YYYY-MM-DD.")
-  .transform((s) => new Date(`${s}T00:00:00.000Z`));
 
 export const clubRequestInput = z.object({ organizationId: uuid, tnbaNumber: z.string().trim().max(40).optional() });
 export const orgInviteInput = z.object({
