@@ -11,7 +11,7 @@ import type { Viewer } from "../auth/viewer";
 import { ageOn, DAY_MS } from "../lib/dates";
 import { sendEmail } from "../lib/mailer";
 import { normalizeIndianPhone } from "../lib/phone";
-import { clearAttempts, limitAttempts } from "../lib/rate-limit";
+import { limitAttempts } from "../lib/rate-limit";
 
 const PARENT_LINK_DAYS = 7;
 
@@ -259,8 +259,14 @@ export async function changePassword(viewer: Viewer, input: z.infer<typeof chang
 export const forgotPasswordInput = z.object({ email: z.email().transform((s) => s.trim().toLowerCase()) });
 export const resetPasswordInput = z.object({ token: z.string().min(20), newPassword: password });
 
-/** Always answers the same way, so nobody can use it to check which emails have accounts. */
-export async function forgotPassword(input: z.infer<typeof forgotPasswordInput>) {
+/**
+ * Always answers the same way, so nobody can use it to check which emails have accounts.
+ * Limited to 3 emails an hour per address and 20 requests an hour per network, so it can't be
+ * used to flood someone's inbox. (Password reset is by email link only, PRD §4.)
+ */
+export async function forgotPassword(input: z.infer<typeof forgotPasswordInput>, ip: string | null) {
+  limitAttempts(`forgot:ip:${ip ?? "unknown"}`, 20, 3600, "reset requests from this network");
+  limitAttempts(`forgot:email:${input.email}`, 3, 3600, "reset emails for this address");
   const user = await prisma.user.findUnique({ where: { email: input.email } });
   if (user && (user.status === "active" || user.status === "limited")) {
     const token = await createResetToken(user.id, user.passwordHash);
@@ -283,33 +289,4 @@ export async function resetPassword(input: z.infer<typeof resetPasswordInput>) {
   if (!userId) throw new AppError(410, "link_expired", "This reset link has expired or was already used. Ask for a new one.");
   await prisma.user.update({ where: { id: userId }, data: { passwordHash: await hashPassword(input.newPassword) } });
   return { ok: true };
-}
-
-// ---- Recover by phone + date of birth (local / testing; email or OTP to be added before launch) ----
-// Weaker than an email link: anyone who knows both could try. Limits: 5 tries an hour per phone,
-// 20 per network address; the reset step is valid for 15 minutes; the new password is set at once.
-
-export const recoverInput = z.object({
-  phone: z.string().transform((s, ctx) => {
-    const p = normalizeIndianPhone(s);
-    if (!p) ctx.addIssue({ code: "custom", message: "Enter a valid Indian mobile number." });
-    return p ?? "";
-  }),
-  dateOfBirth: dateOnly,
-});
-
-const RECOVER_MINUTES = 15;
-
-export async function recoverWithPhone(input: z.infer<typeof recoverInput>, ip: string | null) {
-  limitAttempts(`recover:ip:${ip ?? "unknown"}`, 20, 3600, "attempts from this network");
-  limitAttempts(`recover:phone:${input.phone}`, 5, 3600, "attempts for this number");
-
-  const user = await prisma.user.findUnique({ where: { phone: input.phone } });
-  const sameDay = (a: Date, b: Date) => a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
-  if (!user || !["active", "limited"].includes(user.status) || !sameDay(user.dateOfBirth, input.dateOfBirth)) {
-    // Same answer whether the number is unknown or the date is wrong
-    throw badRequest("no_match", "The phone number and date of birth don't match an account.");
-  }
-  clearAttempts(`recover:phone:${input.phone}`);
-  return { resetToken: await createResetToken(user.id, user.passwordHash, RECOVER_MINUTES), name: user.name, expiresInMinutes: RECOVER_MINUTES };
 }

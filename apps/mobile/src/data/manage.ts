@@ -26,12 +26,9 @@ export async function changePassword(currentPassword: string, newPassword: strin
   await post('/api/auth/change-password', { currentPassword, newPassword });
 }
 
-export async function recover(phone: string, dateOfBirth: string) {
-  return post<{ resetToken: string; name: string; expiresInMinutes: number }>('/api/auth/recover', { phone, dateOfBirth });
-}
-
-export async function resetPassword(token: string, newPassword: string) {
-  await post('/api/auth/reset-password', { token, newPassword });
+/** Emails a reset link (opens the website's /reset-password). Same answer whether or not the email has an account. */
+export async function forgotPassword(email: string) {
+  return post<{ ok: true; message: string }>('/api/auth/forgot-password', { email: email.trim() });
 }
 
 // ── Posts: delete, report, pin ────────────────────────────────────────────

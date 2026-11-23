@@ -182,7 +182,7 @@ Send the login token as `Authorization: Bearer <token>`.
 | POST | /api/courts/:id/review · GET /api/admin/courts | Basky team | Approve courts |
 | PUT | /api/clubs/:id/timings | club staff | Weekly practice hours |
 | POST | /api/uploads | active account | Photo (form field `file`, JPG/PNG/WEBP/HEIC, ≤10 MB) → `{ url }` |
-| POST | /api/auth/forgot-password · /api/auth/reset-password | anyone | Email a reset link · set the new password |
+| POST | /api/auth/forgot-password · /api/auth/reset-password | anyone | Email a reset link (same answer for unknown emails; 3 an hour per address, 20 per network) · set the new password. Email link is the only way to reset (PRD §4) |
 | GET / POST / DELETE | /api/admin/badges(/:id) | Basky team | Verified (clubs) and Creator (people) badges |
 | GET | /api/admin/users · POST /api/admin/users/:id/status | Basky team | Find accounts · set `{ status: active / limited / suspended / deleted, reason }`. Deleted is final and refused while the person holds a BaskyCLub role or owns a club/association |
 | GET / POST / DELETE | /api/admin/roles(/:id) | super admin (list: Basky team) | BaskyCLub roles |

@@ -65,7 +65,7 @@ export interface ApiResult<T = any> {
 export async function api<T = any>(
   method: string,
   path: string,
-  opts: { as?: TestUserKey | null; token?: string; body?: unknown; form?: FormData } = {},
+  opts: { as?: TestUserKey | null; token?: string; body?: unknown; form?: FormData; headers?: Record<string, string> } = {},
 ): Promise<ApiResult<T>> {
   const url = new URL(path, "http://test.local");
   const entry = ROUTES.find((r) => r.pattern.test(url.pathname));
@@ -77,7 +77,7 @@ export async function api<T = any>(
   const handler = mod[method];
   if (!handler) return { status: 405, body: null as T };
 
-  const headers: Record<string, string> = { "x-forwarded-for": "10.0.0.1" };
+  const headers: Record<string, string> = { "x-forwarded-for": "10.0.0.1", ...opts.headers };
   const token = opts.token ?? (opts.as ? await tokenFor(opts.as) : undefined);
   if (token) headers.authorization = `Bearer ${token}`;
   if (opts.body !== undefined) headers["content-type"] = "application/json";
