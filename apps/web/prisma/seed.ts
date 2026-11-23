@@ -10,7 +10,7 @@
 // =============================================================================
 import type { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const TEST_PASSWORD = "Basky@123";
@@ -496,6 +496,9 @@ export async function fixSampleLinks(prisma: PrismaClient) {
 // ---- Run directly: npm run db:seed ---------------------------------------------------------
 
 async function main() {
+  // tsx doesn't read .env, and Prisma only finds it if .env existed when the client was
+  // generated (pnpm install). Load it here; variables already set (e.g. in CI) win.
+  if (existsSync(".env")) process.loadEnvFile(".env");
   const { prisma } = await import("../src/server/db");
   try {
     const places = await seedPlaces(prisma);
