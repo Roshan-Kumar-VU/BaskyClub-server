@@ -1,4 +1,4 @@
-# baskyclub-server
+# apps/web — BaskyCLub API (+ website)
 
 The shared backend for BaskyCLub: **one API for the website and the iOS/Android app**, plus the database design.
 Next.js 16 (API routes) · PostgreSQL · Prisma 5.22 · TypeScript.
@@ -25,8 +25,8 @@ How a request flows: `src/app/api/clubs/[id]/join/route.ts` → `requireViewer` 
 ## First-time setup (Mac)
 
 ```bash
-cd ~/Documents/"BaskyClub Workspace"/baskyclub-server
-npm install                       # downloads packages + prepares Prisma (needs internet)
+pnpm install                      # at the repo root: downloads packages + prepares Prisma (needs internet)
+cd apps/web                       # every command below runs from here
 ```
 
 Add these lines to your `.env` (it already has DATABASE_URL and DIRECT_URL). `$(whoami)` fills in your username:
@@ -42,29 +42,29 @@ EOF
 Then:
 
 ```bash
-npm run db:migrate                # build tables (already done once — safe to repeat)
-npm run db:seed                   # places + test accounts
-npm run dev                       # start the API → open http://localhost:3000/api/health
+pnpm db:migrate                # build tables (already done once — safe to repeat)
+pnpm db:seed                   # places + test accounts
+pnpm dev                       # start the API → open http://localhost:3000/api/health
 ```
 
 Automated tests (use a separate, throwaway database — they erase it every run):
 
 ```bash
 createdb baskyclub_test
-npm run test:prepare              # build tables in the test database
-npm test                          # 124 checks, about 20 seconds
+ppnpm test:prepare              # build tables in the test database
+pnpm test                          # 124 checks, about 20 seconds
 ```
 
 ## Everyday commands
 
 | Command | Does |
 |---|---|
-| `npm run dev` | Start the API at http://localhost:3000 (restarts on every file save) |
-| `npm test` | Run all tests |
-| `npm run db:seed` | Add places + test accounts (skips what already exists) |
-| `npm run db:reset` | **Erase the local database** and rebuild it from scratch + seed |
-| `npm run db:studio` | Look at the data in the browser |
-| `npm run typecheck` | Check the code for type mistakes |
+| `pnpm dev` | Start the API at http://localhost:3000 (restarts on every file save) |
+| `pnpm test` | Run all tests |
+| `pnpm db:seed` | Add places + test accounts (skips what already exists) |
+| `pnpm db:reset` | **Erase the local database** and rebuild it from scratch + seed |
+| `pnpm db:studio` | Look at the data in the browser |
+| `pnpm typecheck` | Check the code for type mistakes |
 
 ## Test accounts (local / testing only)
 
@@ -194,5 +194,5 @@ Send the login token as `Authorization: Bearer <token>`.
 
 ## Moving to Supabase / AWS later
 
-Only `.env` changes (the two database addresses + a new JWT_SECRET). Then `npm run db:migrate` against the new address.
+Only `.env` changes (the two database addresses + a new JWT_SECRET). Then `pnpm db:migrate` against the new address.
 Test accounts are **not** for the live site.

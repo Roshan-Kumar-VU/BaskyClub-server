@@ -1,5 +1,5 @@
 {
-  "name": "baskyclub-server",
+  "name": "@baskyclub/web",
   "version": "0.1.0",
   "private": true,
   "description": "BaskyCLub shared backend: one API for the website and the iOS/Android app.",

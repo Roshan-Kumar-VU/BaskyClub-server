@@ -1,0 +1,20 @@
+{
+  "name": "baskyclub",
+  "private": true,
+  "description": "BaskyCLub monorepo: apps/web (Next.js website + API), apps/mobile (Expo app).",
+  "packageManager": "pnpm@11.26.0",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "web": "pnpm --filter @baskyclub/web",
+    "mobile": "pnpm --filter @baskyclub/mobile"
+  },
+  "devDependencies": {
+    "turbo": "2.11.13"
+  }
+}
