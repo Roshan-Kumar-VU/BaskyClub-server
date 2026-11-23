@@ -648,7 +648,7 @@ model ModerationCase {
   source       String // "ai" | "report" | "no_club_review"
   reason       String?
   aiScore      Decimal?  @map("ai_score") @db.Decimal(4, 3)
-  status       String    @default("open") // "open" | "approved" | "removed"
+  status       String    @default("open") // "open" | "hidden" | "approved" | "removed"
   reportedById String?   @map("reported_by") @db.Uuid
   reviewedById String?   @map("reviewed_by") @db.Uuid
   reviewedAt   DateTime? @map("reviewed_at")

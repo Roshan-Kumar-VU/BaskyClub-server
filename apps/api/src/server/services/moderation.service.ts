@@ -1,5 +1,9 @@
-// Review queue (#25, #41): posts from people without a club, user reports, later AI flags.
-// Moderators decide: approve (publish / dismiss) or remove. Every decision is logged.
+// Review queue (PRD §8): reported posts, comments and people. Moderation is manual.
+// Moderators decide: approve (publish / keep), hide, or remove. Every decision is logged.
+//   approve → the post/comment is published (also brings back a hidden one); the case closes.
+//   hide    → only its author (and moderators) still see it; reversible, so the case stays
+//             in the "hidden" list where a moderator can later approve or remove it.
+//   remove  → gone for everyone (comments also get deleted_at); final.
 import { z } from "zod";
 import { prisma } from "../db";
 import { badRequest, notFound } from "../errors";
@@ -13,11 +17,11 @@ export const reportInput = z.object({
   reason: z.string().trim().min(3, "Tell us briefly what's wrong.").max(500),
 });
 export const casesQuery = z.object({
-  status: z.enum(["open", "approved", "removed"]).default("open"),
+  status: z.enum(["open", "hidden", "approved", "removed"]).default("open"),
   source: z.enum(["ai", "report", "no_club_review"]).optional(),
 });
 export const decideInput = z.object({
-  decision: z.enum(["approve", "remove"]),
+  decision: z.enum(["approve", "hide", "remove"]),
   note: z.string().trim().max(500).optional(),
 });
 
@@ -77,18 +81,20 @@ export async function decideCase(viewer: Viewer, caseId: string, input: z.infer<
   requireModerator(viewer);
   const c = await prisma.moderationCase.findUnique({ where: { id: caseId } });
   if (!c) throw notFound("Case");
-  if (c.status !== "open") throw badRequest("already_decided", "This case has already been decided.");
-  if (c.targetType === "user" && input.decision === "remove") {
+  // A hidden item's case stays reviewable; approved and removed are final.
+  if (c.status !== "open" && c.status !== "hidden") throw badRequest("already_decided", "This case has already been decided.");
+  if (c.status === "hidden" && input.decision === "hide") throw badRequest("already_hidden", "This is already hidden.");
+  if (c.targetType === "user" && input.decision !== "approve") {
     throw badRequest("use_admin_tools", "Suspending accounts is done by the BaskyCLub team in user management.");
   }
 
   const now = new Date();
-  const status = input.decision === "approve" ? "approved" : "removed";
+  const status = input.decision === "approve" ? "approved" : input.decision === "hide" ? "hidden" : "removed";
+  const next = input.decision === "approve" ? "published" : input.decision === "hide" ? "hidden" : "removed";
   await prisma.$transaction(async (tx) => {
     if (c.targetType === "post") {
       const post = await tx.post.findUnique({ where: { id: c.targetId } });
       if (post) {
-        const next = input.decision === "approve" ? "published" : "removed";
         // A post published from review goes live now, so it shows at the top of the feed (the feed is
         // newest first). When it was first sent stays on the case (moderation_cases.created_at).
         // A reported post that is kept was already live, so its time doesn't change.
@@ -97,14 +103,18 @@ export async function decideCase(viewer: Viewer, caseId: string, input: z.infer<
         if (next === "removed") await tx.user.updateMany({ where: { pinnedPostId: post.id }, data: { pinnedPostId: null } });
         await logChange(tx, viewer.id, "posts", post.id, "update", { moderationStatus: post.moderationStatus }, { moderationStatus: next, note: input.note ?? null });
       }
-    } else if (c.targetType === "comment" && input.decision === "remove") {
-      // Removed comments also get deleted_at, so the comment count drops and "Comment removed" shows
-      await tx.postComment.update({ where: { id: c.targetId }, data: { moderationStatus: "removed", deletedAt: now } });
-      await logChange(tx, viewer.id, "post_comments", c.targetId, "update", null, { moderationStatus: "removed", note: input.note ?? null });
+    } else if (c.targetType === "comment") {
+      const comment = await tx.postComment.findUnique({ where: { id: c.targetId } });
+      if (comment && !comment.deletedAt) {
+        // Removed comments also get deleted_at, so the comment count drops and "Comment removed" shows.
+        // Hidden ones keep deleted_at empty so approving can bring them back.
+        await tx.postComment.update({ where: { id: comment.id }, data: { moderationStatus: next, ...(next === "removed" ? { deletedAt: now } : {}) } });
+        await logChange(tx, viewer.id, "post_comments", comment.id, "update", { moderationStatus: comment.moderationStatus }, { moderationStatus: next, note: input.note ?? null });
+      }
     }
-    // Close every open case about the same item (several people may have reported it)
+    // Decide every open (or hidden) case about the same item (several people may have reported it)
     await tx.moderationCase.updateMany({
-      where: { targetType: c.targetType, targetId: c.targetId, status: "open" },
+      where: { targetType: c.targetType, targetId: c.targetId, status: { in: ["open", "hidden"] } },
       data: { status, reviewedById: viewer.id, reviewedAt: now, note: input.note },
     });
   });

@@ -92,3 +92,80 @@ describe("Review queue and reports (#25, #41)", () => {
     assert.equal((await api("GET", `/api/clubs/${TEST_CLUBS.velloreHoopers}/posts`)).body.posts.length, 2);
   });
 });
+
+describe("Hide (PRD §8: publish, hide or remove)", () => {
+  before(resetDatabase);
+
+  const reportPost = async (as: TestUserKey, targetId: string) =>
+    (await api("POST", "/api/reports", { as, body: { targetType: "post", targetId, reason: "Not ok here" } })).body.caseId as string;
+  const decide = (caseId: string, decision: string, as: TestUserKey = "moderator") =>
+    api("POST", `/api/moderation/cases/${caseId}/decide`, { as, body: { decision } });
+
+  it("hiding a post: only its author still sees it; every report about it moves to the hidden list", async () => {
+    const first = await reportPost("player", P.creatorDrill);
+    await reportPost("coach", P.creatorDrill);
+    const res = await decide(first, "hide");
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.status, "hidden");
+
+    assert.equal((await api("GET", `/api/posts/${P.creatorDrill}`)).status, 404); // visitor
+    assert.equal((await api("GET", `/api/posts/${P.creatorDrill}`, { as: "player" })).status, 404);
+    const own = await api("GET", `/api/posts/${P.creatorDrill}`, { as: "creator" });
+    assert.equal(own.body.moderationStatus, "hidden");
+    assert.ok(!(await api("GET", "/api/feed")).body.posts.some((p: { id: string }) => p.id === P.creatorDrill));
+
+    const open = await api("GET", "/api/moderation/cases", { as: "moderator" });
+    assert.ok(!open.body.cases.some((c: { targetId: string }) => c.targetId === P.creatorDrill));
+    const hidden = await api("GET", "/api/moderation/cases?status=hidden", { as: "moderator" });
+    assert.equal(hidden.body.cases.filter((c: { targetId: string }) => c.targetId === P.creatorDrill).length, 2);
+    // Logged
+    const log = await prisma.changeLog.findFirst({ where: { entity: "posts", entityId: P.creatorDrill }, orderBy: { at: "desc" } });
+    assert.equal((log?.afterValue as { moderationStatus?: string })?.moderationStatus, "hidden");
+  });
+
+  it("a hidden post can be brought back (approve) or removed later; hiding twice is refused", async () => {
+    const hidden = (await api("GET", "/api/moderation/cases?status=hidden", { as: "moderator" })).body.cases[0];
+    assert.equal((await decide(hidden.id, "hide")).body.error.code, "already_hidden");
+    const back = await decide(hidden.id, "approve");
+    assert.equal(back.body.status, "approved");
+    assert.equal((await api("GET", `/api/posts/${P.creatorDrill}`)).status, 200);
+    // approved is final
+    assert.equal((await decide(hidden.id, "remove")).body.error.code, "already_decided");
+
+    const again = await reportPost("captain", P.clubHighlights);
+    await decide(again, "hide");
+    assert.equal((await decide(again, "remove")).body.status, "removed");
+    assert.equal((await api("GET", `/api/posts/${P.clubHighlights}`, { as: "clubOwner" })).body.moderationStatus, "removed");
+  });
+
+  it("hiding a comment shows it as removed to others, keeps the count, and approving brings it back", async () => {
+    const comments = (await api("GET", `/api/posts/${P.creatorDrill}/comments`)).body.comments;
+    const target = comments.find((c: { replyCount: number }) => c.replyCount > 0) ?? comments[0];
+    const before = (await api("GET", `/api/posts/${P.creatorDrill}`)).body.commentCount;
+    const r = await api("POST", "/api/reports", { as: "player", body: { targetType: "comment", targetId: target.id, reason: "Rude" } });
+    await decide(r.body.caseId, "hide");
+
+    const seen = (await api("GET", `/api/posts/${P.creatorDrill}/comments`)).body.comments;
+    const shown = seen.find((c: { id: string }) => c.id === target.id);
+    if (target.replyCount > 0) {
+      assert.equal(shown.isRemoved, true);
+      assert.equal(shown.content, null);
+    } else {
+      assert.equal(shown, undefined);
+    }
+    // Not a delete: the stored count is unchanged (known limit: hidden comments still count)
+    assert.equal((await api("GET", `/api/posts/${P.creatorDrill}`)).body.commentCount, before);
+
+    await decide(r.body.caseId, "approve");
+    const back = (await api("GET", `/api/posts/${P.creatorDrill}/comments`)).body.comments.find((c: { id: string }) => c.id === target.id);
+    assert.equal(back.isRemoved, false);
+    assert.equal(back.content, target.content);
+  });
+
+  it("people can't be hidden or removed from the queue (suspending is an admin tool)", async () => {
+    const r = await api("POST", "/api/reports", { as: "player", body: { targetType: "user", targetId: uid("creator"), reason: "Spam" } });
+    assert.equal((await decide(r.body.caseId, "hide")).body.error.code, "use_admin_tools");
+    assert.equal((await decide(r.body.caseId, "remove")).body.error.code, "use_admin_tools");
+    assert.equal((await decide(r.body.caseId, "bogus")).status, 400);
+  });
+});

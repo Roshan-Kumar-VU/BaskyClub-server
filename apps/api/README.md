@@ -149,8 +149,8 @@ Send the login token as `Authorization: Bearer <token>`.
 | PATCH | /api/auth/me | logged in | Edit profile, district, pinned post |
 | GET / POST / DELETE | /api/follows | logged in | My follows / follow `{ targetType, targetId }` / unfollow `?targetType=&targetId=` |
 | POST | /api/reports | logged in | Report a post, comment or person |
-| GET | /api/moderation/cases?status=open | moderator, Basky team | Review queue |
-| POST | /api/moderation/cases/:id/decide | moderator, Basky team | `{ decision: approve / remove, note? }` |
+| GET | /api/moderation/cases?status=open\|hidden | moderator, Basky team | Review queue |
+| POST | /api/moderation/cases/:id/decide | moderator, Basky team | `{ decision: approve / hide / remove, note? }`. Hide is reversible (`?status=hidden` lists them); approve and remove are final |
 
 **Who sees a post:** `public` — everywhere · `club_page` — club page, author's profile, and the Following feed of the club's members/followers · `members` — active members of that club only. Posts waiting for review are seen only by their author and moderators.
 **Who can post (Phase 1 PRD §7):** current or past members of an approved club/academy, and BaskyCLub staff. Posts for a club: its active members and club staff only. Posts for an association: its owner/admins (or the Basky team). Everyone else gets 403 `club_members_only`. Posts publish immediately; reports still go to the moderators' queue.
