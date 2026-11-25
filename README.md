@@ -8,6 +8,7 @@ Monorepo for BaskyCLub (pnpm workspaces + Turborepo).
 | `apps/web` | Website (Next.js pages only; data from the API). Port 3001. See [apps/web/README.md](apps/web/README.md). |
 | `apps/mobile` | Expo app (iOS / Android). See [apps/mobile/README.md](apps/mobile/README.md). |
 | `packages/*` | Code shared by the apps. |
+| `docs/` | [Phase D launch checklist](docs/phase-d-checklist.md): accounts and decisions needed before going live. |
 
 ## Setup
 
