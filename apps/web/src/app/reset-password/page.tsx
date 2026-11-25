@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { firstParam } from "../_lib/post-json";
+import { Notice } from "@/components/ui";
+import { firstParam } from "@/lib/api";
 import { ResetForm } from "./reset-form";
 
 // The emailed link (auth.service.ts → forgotPassword) points here.
@@ -16,12 +17,12 @@ export default async function ResetPasswordPage({
 }) {
   const token = firstParam((await searchParams).token);
   return (
-    <div className="card">
-      <h1>Set a new password</h1>
+    <div className="mx-auto max-w-lg space-y-4 rounded-2xl border border-line bg-card p-6">
+      <h1 className="font-display text-[26px] font-bold tracking-tight">Set a new password</h1>
       {token ? (
         <ResetForm token={token} />
       ) : (
-        <p className="notice error">This link is incomplete. Open the full link from the email again.</p>
+        <Notice>This link is incomplete. Open the full link from the email again.</Notice>
       )}
     </div>
   );

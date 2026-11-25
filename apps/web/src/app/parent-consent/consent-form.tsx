@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ApiFailure, postJson } from "../_lib/post-json";
+import { Button, Notice } from "@/components/ui";
+import { ApiFailure, postJson } from "@/lib/api";
 
 type State = { kind: "idle" } | { kind: "busy" } | { kind: "done"; already: boolean } | { kind: "error"; message: string };
 
@@ -31,20 +32,20 @@ export function ConsentForm({ token }: { token: string }) {
 
   if (state.kind === "done") {
     return (
-      <p className="notice success">
+      <Notice tone="success">
         {state.already
           ? "You've already confirmed this account. Nothing more to do."
           : "Thank you! The account is now active. Your child can log in to the BaskyCLub app."}
-      </p>
+      </Notice>
     );
   }
 
   return (
-    <>
-      <button className="button" onClick={confirm} disabled={state.kind === "busy"}>
+    <div className="space-y-3">
+      <Button block onClick={confirm} disabled={state.kind === "busy"}>
         {state.kind === "busy" ? "Confirming…" : "I agree — activate the account"}
-      </button>
-      {state.kind === "error" && <p className="notice error">{state.message}</p>}
-    </>
+      </Button>
+      {state.kind === "error" && <Notice>{state.message}</Notice>}
+    </div>
   );
 }

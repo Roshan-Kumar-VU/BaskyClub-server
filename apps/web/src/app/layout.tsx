@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Space_Grotesk } from "next/font/google";
+import { Providers } from "@/components/providers";
 import { webUrl } from "./_lib/config";
 import "./globals.css";
 
 // Same fonts as the app (apps/mobile/src/theme/typography.ts); next/font serves them from this site.
-const body = Manrope({ subsets: ["latin"], variable: "--font-body" });
-const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-display" });
+const body = Manrope({ subsets: ["latin"], variable: "--nf-body" });
+const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "700"], variable: "--nf-display" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(webUrl),
@@ -23,13 +24,8 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${body.variable} ${display.variable}`}>
-      <body>
-        <header className="site-header">
-          <a href="/" className="wordmark">
-            Basky<span>CLub</span>
-          </a>
-        </header>
-        <main className="site-main">{children}</main>
+      <body className="min-h-dvh font-sans antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

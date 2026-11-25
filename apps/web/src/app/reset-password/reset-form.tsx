@@ -2,7 +2,8 @@
 
 import { LIMITS } from "@baskyclub/shared";
 import { useState, type FormEvent } from "react";
-import { ApiFailure, postJson } from "../_lib/post-json";
+import { Button, Field, Notice } from "@/components/ui";
+import { ApiFailure, postJson } from "@/lib/api";
 
 const { min: MIN, max: MAX } = LIMITS.password;
 
@@ -30,7 +31,7 @@ export function ResetForm({ token }: { token: string }) {
     } catch (err) {
       if (err instanceof ApiFailure && (err.status === 410 || err.code === "invalid_input")) {
         // invalid_input here means a malformed token (the password was checked above)
-        setState({ kind: "error", expired: true, message: "This link has expired or was already used. Ask for a new one in the app." });
+        setState({ kind: "error", expired: true, message: "This link has expired or was already used. Ask for a new one from the log in page." });
       } else {
         setState({ kind: "error", message: err instanceof Error ? err.message : "Something went wrong. Please try again." });
       }
@@ -38,42 +39,35 @@ export function ResetForm({ token }: { token: string }) {
   }
 
   if (state.kind === "done") {
-    return <p className="notice success">Your password is changed. Log in to the BaskyCLub app with the new one.</p>;
+    return <Notice tone="success">Your password is changed. <a className="font-bold underline" href="/login">Log in</a> with the new one.</Notice>;
   }
   if (state.kind === "error" && state.expired) {
-    return <p className="notice error">{state.message}</p>;
+    return <Notice>{state.message}</Notice>;
   }
 
   return (
-    <form onSubmit={submit} noValidate>
-      <label className="field">
-        <span>New password</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          aria-invalid={tooShort || tooLong}
-        />
-        <div className="hint">
-          {tooLong ? `Use at most ${MAX} characters.` : `At least ${MIN} characters.`}
-        </div>
-      </label>
-      <label className="field">
-        <span>Type it again</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          value={again}
-          onChange={(e) => setAgain(e.target.value)}
-          aria-invalid={mismatch}
-        />
-        {mismatch && <div className="hint">The two passwords don&apos;t match.</div>}
-      </label>
-      <button className="button" type="submit" disabled={!ready || state.kind === "busy"}>
+    <form onSubmit={submit} noValidate className="space-y-4">
+      <Field
+        label="New password"
+        type="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        error={tooLong ? `Use at most ${MAX} characters.` : tooShort ? `At least ${MIN} characters.` : undefined}
+        hint={`At least ${MIN} characters.`}
+      />
+      <Field
+        label="Type it again"
+        type="password"
+        autoComplete="new-password"
+        value={again}
+        onChange={(e) => setAgain(e.target.value)}
+        error={mismatch ? "The two passwords don't match." : undefined}
+      />
+      <Button block type="submit" disabled={!ready || state.kind === "busy"}>
         {state.kind === "busy" ? "Saving…" : "Save new password"}
-      </button>
-      {state.kind === "error" && <p className="notice error">{state.message}</p>}
+      </Button>
+      {state.kind === "error" && <Notice>{state.message}</Notice>}
     </form>
   );
 }
