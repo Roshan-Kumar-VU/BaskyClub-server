@@ -1,6 +1,6 @@
 # BaskyClub app (iOS + Android)
 
-Expo SDK 58 · React Native · TypeScript · Expo Router. Data comes from the shared API in `../web` (same repo; see the project doc API_REFERENCE.md).
+Expo SDK 58 · React Native · TypeScript · Expo Router. Data comes from the shared API in `../api` (same repo).
 
 ## Run on your Mac
 

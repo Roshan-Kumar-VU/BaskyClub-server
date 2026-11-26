@@ -52,8 +52,8 @@ Automated tests (use a separate, throwaway database — they erase it every run)
 
 ```bash
 createdb baskyclub_test
-ppnpm test:prepare              # build tables in the test database
-pnpm test                          # 144 checks, about 15 seconds
+pnpm test:prepare               # build tables in the test database
+pnpm test                       # 176 checks
 ```
 
 ## Everyday commands
