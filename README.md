@@ -1,198 +1,165 @@
-# baskyclub-server
+# BaskyCLub
 
-The shared backend for BaskyCLub: **one API for the website and the iOS/Android app**, plus the database design.
-Next.js 16 (API routes) · PostgreSQL · Prisma 5.22 · TypeScript.
+BaskyCLub is a basketball community for India: players, clubs, courts and district/state associations in one place.
+Phase 1 (Vellore launch) is built: the backend, the website and the iOS/Android app. Going live is Phase D, see
+[docs/phase-d-checklist.md](docs/phase-d-checklist.md).
+
+This repo is a monorepo (pnpm workspaces + Turborepo) that holds all three apps and the code they share.
+
+| Folder | What | Stack | Port |
+|---|---|---|---|
+| `apps/api` | Backend: every `/api/...` route, all business rules, database, tests. See [apps/api/README.md](apps/api/README.md). | Next.js 16 (route handlers), Prisma 5.22, PostgreSQL 17, Zod 4 | 3000 |
+| `apps/web` | Website: every app feature plus the admin and management tools. See [apps/web/README.md](apps/web/README.md). | Next.js 16, React, Tailwind 4 | 3001 |
+| `apps/mobile` | iOS / Android app. See [apps/mobile/README.md](apps/mobile/README.md). | Expo SDK 58, React Native, Expo Router | — |
+| `packages/shared` | Code used by all three apps: API reply types, input limits, YouTube / age / practice-hour helpers. | TypeScript | — |
+| `docs/` | [Phase D launch checklist](docs/phase-d-checklist.md): accounts and decisions needed before going live. | — | — |
+
+## Architecture
 
 ```
-Phone app / website  ──▶  API (this folder)  ──▶  PostgreSQL
-                          checks login + powers     Mac now → Supabase / AWS later
+  iPhone / Android app (Expo) ────── Bearer token ──────┐
+                                                        ▼
+  Browser ──▶ Website :3001 ──── /api/* forwarded ──▶ API :3000 ──▶ PostgreSQL 17
+              Next.js pages     (with login cookie)    routes → services → Prisma
+              /session/* login                              │
+                                                            ├── email  (log now → Resend)
+                                                            ├── push   (log now → Expo push)
+                                                            └── photos (local disk now → R2/S3)
+
+  packages/shared ── types + rules imported by the app, the website and the API
 ```
 
-## Folder map
+**One API, one set of rules.** All data and every permission check live in `apps/api`. The website and the app are
+only screens: they call the same `/api/...` routes and show what comes back. A rule changed in the API applies to both.
 
-| Path | What it is |
+**Shared code.** `packages/shared` holds the API reply types (`wire.ts`), input limits such as password and post
+length (`rules.ts`), the age-on-date rule used for under-18 accounts (`dates.ts`), YouTube link parsing (`youtube.ts`)
+and practice-hour helpers (`practice.ts`). The app, website and server import the same code, so they can't disagree.
+
+### Inside the API (`apps/api`)
+
+```
+src/app/api/<area>/.../route.ts   web address: read input (Zod), call a service, reply JSON
+        │
+        ▼
+src/server/auth/                  who is calling (JWT from the Authorization header or the website cookie)
+src/server/permissions.ts         what that person may do (platform role, club role, association role)
+        │
+        ▼
+src/server/services/*.service.ts  the rules for one area (posts, clubs, memberships, moderation, imports…)
+        │
+        ▼
+src/server/db.ts → Prisma → PostgreSQL   28 tables (prisma/schema.prisma)
+                                         + database rules Prisma can't express (prisma/phase1_extras.sql)
+```
+
+- `src/server/lib/` holds the swappable drivers and helpers: `mailer.ts` (email), `push.ts` (push alerts),
+  `storage.ts` (photos), `rate-limit.ts`, `csv.ts`, `cursor.ts` (paging).
+- Route areas: auth, users, feed, posts, comments, reports, moderation, clubs, club-roles, memberships, courts, map,
+  places, associations, organization-members, office-bearers, legacy, affiliations, announcements, alerts, follows,
+  badges, devices, uploads, files, admin, health.
+- `tests/` logs in as every role and checks what each one can and can't do (176 tests, real Postgres).
+
+### Inside the website (`apps/web`)
+
+- The browser only talks to the website's own address. `next.config.ts` forwards `/api/*` to the API, so there is
+  no CORS and the login cookie stays on the site's domain.
+- **Login:** `/session/login`, `/session/signup` and `/session/logout` call the API and keep its token in an
+  **httpOnly** cookie (`basky_token`, SameSite=Lax, Secure on https). Page scripts never see the token.
+  A readable `basky_in` marker lets the page clear an expired login instead of breaking.
+- `src/proxy.ts` refuses POST / PATCH / PUT / DELETE to `/api/*` and `/session/*` that don't come from the site itself.
+- Data: `src/lib/store.ts` (`useApi(path)` with a small cache; changes call `invalidate(prefix)`).
+  `/p/:id` (a single post) is rendered on the server so shared links get a preview.
+
+### Inside the app (`apps/mobile`)
+
+- Expo Router: every file in `src/app/` is a screen; `(tabs)/` are the bottom tabs.
+- `src/data/repo.ts` calls the API and maps replies into screen models (`src/types/models.ts`).
+- Login token is sent as `Authorization: Bearer …`. Push alerts register the phone after login and open the right post
+  on tap (needs an EAS development build, Phase D).
+- `phase2/` keeps screens planned for after Phase 1; they are not part of the app build.
+
+## What Phase 1 covers
+
+| Area | Website + app |
 |---|---|
-| `prisma/schema.prisma` | The approved Phase 1 database design (28 tables). Owned by the database chat. |
-| `prisma/phase1_extras.sql` | Database rules Prisma can't write (one open membership, one owner, like/comment counters…). |
-| `prisma/migrations/` | The SQL that builds the tables. `20261027000000_phase1_baseline` = all of Phase 1. |
-| `prisma/seed.ts` + `seed-data/` | Fills places (states, districts, zones) and the test accounts. |
-| `src/server/` | The engine room: login, permissions, and one *service* file per area with all the rules. |
-| `src/app/api/` | The web addresses (routes). Each one is a few lines that call a service. |
-| `tests/` | Automated tests that log in as every role and check what they can and can't do. |
+| Feed | All India or one district, plus the district association's posts; official announcements pinned |
+| Posts | Text, photos, YouTube links; likes, comments and replies (paged), share links, reports |
+| Who can post | Current or past club members, Basky staff, association staff for their association. Past members post personally only |
+| Clubs | List and map with weekly practice hours, join requests, members, roles, timings, register a new club |
+| Associations | Page, team, office bearers, Media / Legacy records, announcements (alerts to followers) |
+| Accounts | Sign up, under-18 accounts limited until a parent confirms by email, password reset by email link, profile, Creator badge |
+| Alerts | One inbox for announcements and replies to your comments; push on the app |
+| Moderation | Approve, hide (reversible) or remove posts and comments; review queue |
+| Basky team / admins | Approve clubs and courts, badges, Creator requests, users (limit / suspend / restore / delete, with change history), roles, associations, CSV upload of office bearers and Legacy records (checked first, all-or-nothing) |
 
-How a request flows: `src/app/api/clubs/[id]/join/route.ts` → `requireViewer` (who is this?) → `memberships.service.ts → requestToJoin` (rules + database) → JSON reply.
+## Setup
 
-## First-time setup (Mac)
-
-```bash
-cd ~/Documents/"BaskyClub Workspace"/baskyclub-server
-npm install                       # downloads packages + prepares Prisma (needs internet)
-```
-
-Add these lines to your `.env` (it already has DATABASE_URL and DIRECT_URL). `$(whoami)` fills in your username:
+Needs Node 22.13+, pnpm 11 (`corepack enable` picks the version from `package.json`) and PostgreSQL 17
+(`brew install postgresql@17`).
 
 ```bash
-cat >> .env <<EOF
-TEST_DATABASE_URL="postgresql://$(whoami)@localhost:5432/baskyclub_test"
-JWT_SECRET="$(openssl rand -base64 48)"
-APP_URL="http://localhost:3000"
-EOF
+pnpm install                         # every app; also generates the Prisma client
+brew services run postgresql@17      # start Postgres for this session only (not at login)
 ```
 
-Then:
+1. API: follow [apps/api/README.md](apps/api/README.md) (database, `.env`, `pnpm api db:migrate`, `pnpm api db:seed`).
+2. Website: `cp apps/web/.env.example apps/web/.env` (`API_URL`, `WEB_URL`).
+3. App: `cp apps/mobile/.env.example apps/mobile/.env.local` (the API address the phone can reach).
+4. `pnpm dev` starts the API (:3000) and the website (:3001). Start the app with `pnpm mobile start`.
 
-```bash
-npm run db:migrate                # build tables (already done once — safe to repeat)
-npm run db:seed                   # places + test accounts
-npm run dev                       # start the API → open http://localhost:3000/api/health
-```
+Stop Postgres afterwards with `brew services stop postgresql@17`.
 
-Automated tests (use a separate, throwaway database — they erase it every run):
+### Test accounts (local only)
 
-```bash
-createdb baskyclub_test
-npm run test:prepare              # build tables in the test database
-npm test                          # 124 checks, about 20 seconds
-```
+`pnpm api db:seed` creates test accounts for every role (player, club owner, club admin, under-18 waiting for a parent,
+association admin, moderator, Basky team, super admin). All use the password `Basky@123`. The full list is in
+[apps/api/README.md](apps/api/README.md#test-accounts-local--testing-only). In development the login screens of the
+website and the app list them for one-tap login.
 
-## Everyday commands
+### Environment variables
+
+| App | File | Main variables |
+|---|---|---|
+| API | `apps/api/.env` | `DATABASE_URL`, `DIRECT_URL`, `TEST_DATABASE_URL`, `JWT_SECRET`, `API_URL`, `WEB_URL`, `EMAIL_DRIVER` (`log`), `PUSH_DRIVER` (`log`), `STORAGE_DRIVER` (`local`) |
+| Website | `apps/web/.env` | `API_URL` (where the website's server reaches the API), `WEB_URL` |
+| App | `apps/mobile/.env.local` | `EXPO_PUBLIC_API_URL` |
+
+`.env` files are git-ignored; never commit them. Production values are listed in the
+[Phase D checklist](docs/phase-d-checklist.md#production-environment-variables-api).
+
+## Commands (from the repo root)
 
 | Command | Does |
 |---|---|
-| `npm run dev` | Start the API at http://localhost:3000 (restarts on every file save) |
-| `npm test` | Run all tests |
-| `npm run db:seed` | Add places + test accounts (skips what already exists) |
-| `npm run db:reset` | **Erase the local database** and rebuild it from scratch + seed |
-| `npm run db:studio` | Look at the data in the browser |
-| `npm run typecheck` | Check the code for type mistakes |
+| `pnpm dev` | API (:3000) + website (:3001) with reload on save |
+| `pnpm typecheck` | Type-check every app and package |
+| `pnpm test` | API tests (needs the test database, see apps/api) and shared-package tests |
+| `pnpm build` | Production builds (Turborepo rebuilds only what changed) |
+| `pnpm api <script>` | Run a script in apps/api, e.g. `pnpm api db:seed`, `pnpm api db:studio` |
+| `pnpm web <script>` | Run a script in apps/web |
+| `pnpm mobile <script>` | Run a script in apps/mobile, e.g. `pnpm mobile start` |
 
-## Test accounts (local / testing only)
+Add a package to one app: `pnpm --filter @baskyclub/api add <pkg>`. For the Expo app always use
+`cd apps/mobile && pnpm expo install <pkg>` (picks SDK-compatible versions).
 
-All use the password **`Basky@123`**. Phone numbers are `+91 90000 000NN` (NN = the number below).
+## CI
 
-| # | Email | Role |
-|---|---|---|
-| 1 | superadmin@test.baskyclub.in | Super admin (everything) |
-| 2 | baskyteam@test.baskyclub.in | Basky team: approves clubs |
-| 3 | moderator@test.baskyclub.in | Moderator: review queue for posts and comments |
-| 4 | tnba.admin@test.baskyclub.in | TNBA owner + General Secretary |
-| 5 | vellore.admin@test.baskyclub.in | Vellore DBA owner + Secretary |
-| 6 | vellore.member@test.baskyclub.in | Vellore DBA member + Joint Secretary |
-| 7 | club.owner@test.baskyclub.in | Owner of Vellore Hoopers |
-| 8 | club.admin@test.baskyclub.in | Admin of Vellore Hoopers (SG) |
-| 9 | captain@test.baskyclub.in | Captain of Vellore Hoopers (PG) |
-| 10 | coach@test.baskyclub.in | Head coach of Vellore Hoopers; owner of Vellore Basketball Academy |
-| 11 | player@test.baskyclub.in | Player at Vellore Hoopers (SF) |
-| 12 | minor.player@test.baskyclub.in | 16-year-old player, parent confirmed (C) |
-| 13 | minor.pending@test.baskyclub.in | 15-year-old, waiting for parent → browse only |
-| 14 | joiner@test.baskyclub.in | Asked to join Vellore Hoopers (pending) |
-| 15 | user@test.baskyclub.in | Normal user, no club (left Vellore Hoopers last year) |
-| 16 | creator@test.baskyclub.in | Creator badge |
-| 17 | suspended@test.baskyclub.in | Suspended — cannot log in |
-| 18 | pending.owner@test.baskyclub.in | Owner of Katpadi Ballers (waiting for approval) |
-| — | (no account) | Visitor |
+`.github/workflows/ci.yml` runs on every push:
 
-Clubs: **Vellore Hoopers** (approved, affiliated to Vellore DBA, verified) · **Vellore Basketball Academy** (approved, community club) · **Katpadi Ballers** (pending).
-Associations: BFI → TNBA → Vellore DBA (claimed, covers Vellore + Tirupathur) and Chennai DBA (published).
+1. Typecheck, API tests against a throwaway Postgres 17, shared tests, API and website production builds.
+2. An Android bundle of the app (`expo export`), which catches workspace / Metro resolution problems.
 
-Sample posts (Round 2): Priya's photo post (pinned), club highlights (YouTube), a members-only notice, a club-page trials post, a no-club post waiting for review, the creator's drill with a comment thread, a TNBA post (Chennai) and a junior's post — plus likes and follows.
+## Branches
 
-The seed never adds test accounts when `NODE_ENV=production` (unless `SEED_TEST_WORLD=yes`).
+- `main`: the stable branch; deploys will run from it (Phase D).
+- `v-001/arch`: Phase 1 work (monorepo, backend, app, website), merged into `main` through PR #1.
 
-## API — Round 1
+## Status and next steps
 
-All replies are JSON. Errors look like `{ "error": { "code": "already_member", "message": "You are already a member of this club." } }`.
-Send the login token as `Authorization: Bearer <token>`.
-
-| Method | Address | Who | Does |
-|---|---|---|---|
-| GET | /api/health | anyone | API and database are up |
-| POST | /api/auth/signup | anyone | Create account; under-18 needs `parentName` + `parentEmail` |
-| POST | /api/auth/login | anyone | `{ login: email or phone, password }` → token |
-| GET | /api/auth/me | logged in | Own profile, clubs, roles, association powers |
-| POST | /api/auth/change-password | logged in | `{ currentPassword, newPassword }` |
-| POST | /api/auth/parental-consent/confirm | parent (link) | `{ token }` → under-18 account becomes active |
-| GET | /api/places/states | anyone | 36 states |
-| GET | /api/places/states/:code/districts | anyone | Districts of a state |
-| GET | /api/clubs | anyone | Approved clubs; `?districtCode= &stateCode= &kind= &q= &limit= &offset=` |
-| POST | /api/clubs | adult, active | Register a club (waits for approval; you become owner) |
-| GET | /api/clubs/:id | anyone | Club page (+ what *you* can do there) |
-| PATCH | /api/clubs/:id | owner, admin, Basky team | Edit details |
-| POST | /api/clubs/:id/review | Basky team | `{ decision: approve / suspend / reinstate }` |
-| GET | /api/admin/clubs?status=pending | Basky team | Approval queue |
-| GET | /api/clubs/:id/members | anyone | Active members, positions, roles |
-| POST / DELETE | /api/clubs/:id/join | logged in | Ask to join / withdraw request |
-| POST | /api/clubs/:id/leave | member | Leave (owner must hand over first) |
-| GET | /api/clubs/:id/requests | owner, admin | Pending join requests |
-| POST | /api/memberships/:id/approve, /reject | owner, admin | Decide a request |
-| PATCH | /api/memberships/:id | member (own position) / staff | Player ticked, position, coach, referee |
-| DELETE | /api/memberships/:id | owner, admin | Remove a member (only owner removes an admin) |
-| POST | /api/clubs/:id/roles | owner (admin) / owner+admin (captain) | `{ userId, role }` |
-| DELETE | /api/club-roles/:id | see service | End a role (kept as history) |
-| POST | /api/clubs/:id/transfer-ownership | owner, Basky team | `{ newOwnerUserId, keepAsAdmin }` |
-
-## API — Round 2 (community)
-
-| Method | Address | Who | Does |
-|---|---|---|---|
-| GET | /api/feed?scope=all\|district\|following&districtCode=&cursor= | anyone (following: logged in) | Feed, 20 at a time; `nextCursor` loads more |
-| POST | /api/posts | active account | `{ content, clubId?, visibility, images: [{url}], youtubeUrl? }` |
-| GET / PATCH / DELETE | /api/posts/:id | anyone / author / author or moderator | Read, edit text, delete |
-| POST | /api/posts/:id/share | logged in | Count a share, get the link |
-| POST / DELETE | /api/posts/:id/like | active account | Like / unlike → `{ liked, likeCount }` |
-| GET / POST | /api/posts/:id/comments | anyone / active account | Top-level comments; add `{ content, parentId? }` |
-| GET | /api/comments/:id/replies | anyone | "View N replies" |
-| DELETE | /api/comments/:id | commenter, post author, moderator | Leaves "Comment removed" if it has replies |
-| GET | /api/clubs/:id/posts | anyone (members see members-only) | Club page posts |
-| GET | /api/users/:id · /api/users/:id/posts | anyone | Profile page and its posts |
-| PATCH | /api/auth/me | logged in | Edit profile, district, pinned post |
-| GET / POST / DELETE | /api/follows | logged in | My follows / follow `{ targetType, targetId }` / unfollow `?targetType=&targetId=` |
-| POST | /api/reports | logged in | Report a post, comment or person |
-| GET | /api/moderation/cases?status=open | moderator, Basky team | Review queue |
-| POST | /api/moderation/cases/:id/decide | moderator, Basky team | `{ decision: approve / remove, note? }` |
-
-**Who sees a post:** `public` — everywhere · `club_page` — club page, author's profile, and the Following feed of the club's members/followers · `members` — active members of that club only. Posts waiting for review are seen only by their author and moderators.
-**Who publishes without review (#41):** members of an approved club, association office holders, Creators, BaskyCLub staff. Everyone else → review queue.
-**Limits:** 10 posts an hour, 5 comments a minute, 10 photos + 1 YouTube link per post.
-
-## API — Round 3 (associations, alerts, admin, map, photos)
-
-| Method | Address | Who | Does |
-|---|---|---|---|
-| GET / POST | /api/associations | anyone / Basky team | List (`?level=&stateCode=&q=`) / create (starts as draft) |
-| GET / PATCH | /api/associations/:id | anyone / association owner+admin (pageStatus: Basky team) | Association page / edit |
-| PUT | /api/associations/:id/districts | Basky team | `{ districtCodes }` it covers |
-| GET / POST | /api/associations/:id/members | association owner+admin | Who has power; add `{ userId, accessLevel }` |
-| DELETE | /api/organization-members/:id | owner, Basky team, or self | End an association role |
-| GET / POST | /api/associations/:id/office-bearers | anyone (`?past=1`) / staff | Office bearers with terms |
-| PATCH / DELETE | /api/office-bearers/:id | staff | End a term (`termTo`) / remove a mistake |
-| GET / POST | /api/associations/:id/legacy | anyone / staff | Media / Legacy records with photos + YouTube |
-| PATCH / DELETE | /api/legacy/:id | staff | Edit / remove a record |
-| GET | /api/associations/:id/posts | anyone | Official posts (`POST /api/posts` with `organizationId`) |
-| GET / POST | /api/clubs/:id/affiliations | club staff | List / ask to affiliate `{ organizationId }` |
-| GET / POST | /api/associations/:id/affiliations | association staff | List (`?status=pending`) / invite `{ clubId }` |
-| POST | /api/affiliations/:id/decide | the other side's staff | `{ decision: approve / reject, validUntil? }` (default 31 March) |
-| POST | /api/affiliations/:id/end | either side | End / withdraw |
-| POST | /api/announcements | association team / club owner+admin / Basky team | `{ senderOrgId? \| senderClubId?, audience, districtCode?, title, body, showInFeed }` |
-| GET | /api/alerts?box=inbox\|sent | logged in | Alerts inbox (bell) |
-| POST / DELETE | /api/devices | logged in | Register phone `{ token, platform }` / remove `?token=` |
-| GET | /api/map?lat=&lng=&radiusKm= (or ?districtCode=) | anyone | Clubs + courts near you, nearest first |
-| POST / GET / PATCH / DELETE | /api/courts, /api/courts/:id | logged in / see service | Suggest and manage courts |
-| POST | /api/courts/:id/review · GET /api/admin/courts | Basky team | Approve courts |
-| PUT | /api/clubs/:id/timings | club staff | Weekly practice hours |
-| POST | /api/uploads | active account | Photo (form field `file`, JPG/PNG/WEBP/HEIC, ≤10 MB) → `{ url }` |
-| POST | /api/auth/forgot-password · /api/auth/reset-password | anyone | Email a reset link · set the new password |
-| GET / POST / DELETE | /api/admin/badges(/:id) | Basky team | Verified (clubs) and Creator (people) badges |
-| GET | /api/admin/users · POST /api/admin/users/:id/status | Basky team | Find accounts · suspend / restore `{ status, reason }` |
-| GET / POST / DELETE | /api/admin/roles(/:id) | super admin (list: Basky team) | BaskyCLub roles |
-| GET | /api/admin/change-log | Basky team | Who changed what |
-| PATCH | /api/admin/zones/:code · /api/admin/districts/:code | Basky team | Fix zones and districts |
-
-**Who can send announcements to whom:** association team → club admins in its area, members of affiliated clubs, people living in a district it covers, its followers · club owner/admin → club members, followers · BaskyCLub team → everyone, a district. Limit: 10 a day per sender.
-
-**Settings for later (`.env`):** `EMAIL_DRIVER=resend` + `RESEND_API_KEY` (emails are printed in Terminal until then) · `PUSH_DRIVER=expo` (alerts are only recorded until then) · `STORAGE_DRIVER` (photos go to the `uploads` folder for now; Supabase Storage / S3 is added once hosting is chosen).
-
-## Moving to Supabase / AWS later
-
-Only `.env` changes (the two database addresses + a new JWT_SECRET). Then `npm run db:migrate` against the new address.
-Test accounts are **not** for the live site.
+- **Done:** Phase A (backend), Phase B (app), Phase C (website).
+- **Next, Phase D (launch):** hosting, managed database, domain, real email, photo storage, push alerts, store builds.
+  What is needed from the owners and what is left for the developer: [docs/phase-d-checklist.md](docs/phase-d-checklist.md).
+- **Known limits:** the website map shows one place at a time (OpenStreetMap, no map library); hidden comments still
+  count in the comment total; reply-to-reply alerts reach only the thread starter; the rate limiter lives in server
+  memory (fine for one server).

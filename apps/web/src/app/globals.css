@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/* Colours match the app's "Courtside" theme (apps/mobile/src/theme/colors.ts). */
+:root {
+  --c-bg: #f9f9f9;
+  --c-card: #ffffff;
+  --c-fill: #ecedee;
+  --c-line: #e3e4e6;
+  --c-ink: #16181b;
+  --c-ink-2: #4a4f55;
+  --c-muted: #80868d;
+  --c-accent: #ff6b00;
+  --c-accent-ink: #a04100;
+  --c-accent-soft: #ffe6d5;
+  --c-official: #123a63;
+  --c-official-soft: #e1e9f2;
+  --c-scoreboard: #123a63;
+  --c-success: #1f8a4c;
+  --c-danger: #d7261e;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #0d1117;
+    --c-card: #161b22;
+    --c-fill: #232a33;
+    --c-line: #2a313b;
+    --c-ink: #f2f4f6;
+    --c-ink-2: #b7bec6;
+    --c-muted: #7d858f;
+    --c-accent-ink: #ff9a55;
+    --c-accent-soft: #3a1f0c;
+    --c-official: #7fb0e3;
+    --c-official-soft: #14273d;
+    --c-success: #4ade80;
+    --c-danger: #ff5449;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--c-bg);
+  --color-card: var(--c-card);
+  --color-fill: var(--c-fill);
+  --color-line: var(--c-line);
+  --color-ink: var(--c-ink);
+  --color-ink-2: var(--c-ink-2);
+  --color-muted: var(--c-muted);
+  --color-accent: var(--c-accent);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-official: var(--c-official);
+  --color-official-soft: var(--c-official-soft);
+  /* Paint blue in both themes: official bands and headers with white text */
+  --color-scoreboard: var(--c-scoreboard);
+  --color-success: var(--c-success);
+  --color-danger: var(--c-danger);
+  /* next/font sets --nf-body and --nf-display on <html> (layout.tsx) */
+  --font-sans: var(--nf-body), system-ui, sans-serif;
+  --font-display: var(--nf-display), system-ui, sans-serif;
+}
+
+@layer base {
+  html,
+  body {
+    background: var(--c-bg);
+    color: var(--c-ink);
+  }
+  body {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+}
